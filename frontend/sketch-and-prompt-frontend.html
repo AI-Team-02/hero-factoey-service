@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketch and Generate</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        #canvas {
+            border: 1px solid #000;
+            cursor: crosshair;
+        }
+        #prompt {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        #generate {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #generate:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sketch and Generate</h1>
+        <canvas id="canvas" width="512" height="512"></canvas>
+        <br>
+        <input type="text" id="prompt" placeholder="Enter your prompt here" value="gun">
+        <br>
+        <button id="generate">Generate</button>
+        <br>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        // Set canvas background to white
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000';
+
+            ctx.lineTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        document.getElementById('generate').addEventListener('click', generateImage);
+
+        async function generateImage() {
+            const prompt = document.getElementById('prompt').value;
+            const resultDiv = document.getElementById('result');
+            
+            // Canvas 내용을 Blob으로 변환
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+            const formData = new FormData();
+            formData.append('file', blob, 'sketch.png');
+            formData.append('request', JSON.stringify({ prompt: prompt }));
+
+            resultDiv.innerHTML = 'Sending request...';
+
+            try {
+                const response = await fetch('http://localhost:8288/api/generate/', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include',                    
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const taskId = data.task_id;
+
+                resultDiv.innerHTML = 'Processing image...';
+
+                await pollForResult(taskId, resultDiv);
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `Error: ${error.message}. Please try again.`;
+            }
+        }
+
+        async function pollForResult(taskId, resultDiv) {
+            const maxAttempts = 60; // 최대 60초 대기
+            const interval = 1000; // 1초마다 확인
+
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                try {
+                    const statusResponse = await fetch(`http://localhost:8288/api/status/${taskId}`);
+                    
+                    if (!statusResponse.ok) {
+                        throw new Error(`HTTP error! status: ${statusResponse.status}`);
+                    }
+
+                    const statusData = await statusResponse.json();
+
+                    if (statusData.status === 'completed') {
+                        resultDiv.innerHTML = `<img src="${statusData.image}" alt="Generated Image">`;
+                        return;
+                    } else if (statusData.status === 'failed') {
+                        resultDiv.innerHTML = `Error: ${statusData.error}`;
+                        return;
+                    }
+
+                    resultDiv.innerHTML = `Processing image... (attempt ${attempt + 1}/${maxAttempts})`;
+                } catch (error) {
+                    console.error('Error polling for result:', error);
+                    // 오류 발생 시 계속 진행
+                }
+
+                await new Promise(resolve => setTimeout(resolve, interval));
+            }
+
+            resultDiv.innerHTML = 'Timeout: Image generation took too long. Please try again.';
+        }
+
+        // 페이지 로드 시 저장된 작업 ID가 있는지 확인
+        window.addEventListener('load', async () => {
+            const savedTaskId = localStorage.getItem('currentTaskId');
+            if (savedTaskId) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = 'Resuming previous task...';
+                await pollForResult(savedTaskId, resultDiv);
+                localStorage.removeItem('currentTaskId');
+            }
+        });
+
+        // 페이지를 떠날 때 현재 작업 ID 저장
+        window.addEventListener('beforeunload', () => {
+            const resultDiv = document.getElementById('result');
+            if (resultDiv.innerHTML.includes('Processing image...')) {
+                const taskIdMatch = resultDiv.innerHTML.match(/taskId: (\w+)/);
+                if (taskIdMatch) {
+                    localStorage.setItem('currentTaskId', taskIdMatch[1]);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
