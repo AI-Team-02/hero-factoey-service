@@ -7,7 +7,6 @@ import com.gameservice.create_game_resource_service.messaging.GameResourceProduc
 import com.gameservice.create_game_resource_service.model.GameResource;
 import com.gameservice.create_game_resource_service.model.GameResourceCreationMessage;
 import com.gameservice.create_game_resource_service.model.GameResourceCreationRequest;
-//import com.gameservice.create_game_resource_service.messaging.GameResourcePublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
