@@ -33,4 +33,4 @@ build/
 .vscode/
 
 #secret
-application-secret.yml
+application-secret
