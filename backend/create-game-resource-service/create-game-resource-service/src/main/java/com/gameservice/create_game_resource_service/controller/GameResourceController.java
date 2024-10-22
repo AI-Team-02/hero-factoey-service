@@ -1,69 +1,81 @@
 package com.gameservice.create_game_resource_service.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gameservice.create_game_resource_service.model.GameResourceCreationMessage;
-import com.gameservice.create_game_resource_service.model.GameResourceCreationRequest;
+import com.gameservice.create_game_resource_service.model.Member;
 import com.gameservice.create_game_resource_service.service.GameResourceService;
-//import com.gameservice.create_game_resource_service.service.RabbitMQProducer;
-import com.gameservice.create_game_resource_service.exception.TaskNotFoundException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
-import java.util.UUID;
 
-@CrossOrigin(origins = "http://localhost:8080")
 @Slf4j
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Game Resource Generation", description = "Game Resource Generation APIs")
+@SecurityRequirement(name = "bearerAuth")
+@RequiredArgsConstructor
 public class GameResourceController {
-
     private final GameResourceService gameResourceService;
 
-    @Autowired
-    public GameResourceController(GameResourceService gameResourceService) {
-        this.gameResourceService = gameResourceService;
-    }
-
-    @PostMapping("/generate/")
+    @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Generate game resource",
+            description = "Upload an image file and provide a prompt to generate a game resource")
     public ResponseEntity<?> generateGameResource(
-            @RequestPart("file") MultipartFile file,
-            @RequestPart("request") String requestJSON) {
+            @Parameter(description = "Image file") @RequestPart("file") MultipartFile file,
+            @Parameter(description = "Prompt for image generation") @RequestPart("prompt") String prompt,
+            Authentication authentication) {
         try {
-            log.info("이미지 생성 요청 수신: {}", requestJSON);
+            log.info("Received generate request. Prompt: {}", prompt);
+            log.info("File received: {}, size: {}", file.getOriginalFilename(), file.getSize());
 
-            ObjectMapper objectMapper = new ObjectMapper();
-            GameResourceCreationRequest request = objectMapper.readValue(requestJSON, GameResourceCreationRequest.class);
+            Member member = (Member) authentication.getPrincipal();
+            String taskId = gameResourceService.initiateGameResourceCreation(file, prompt, member);
 
-            String taskId = gameResourceService.initiateGameResourceCreation(file, request);
-
-            return ResponseEntity.accepted().body(Map.of("task_id", taskId, "status", "processing"));
+            return ResponseEntity.accepted().body(Map.of(
+                    "task_id", taskId,
+                    "status", "processing",
+                    "user_id", member.getId()
+            ));
         } catch (Exception e) {
-            log.error("게임 리소스 생성 요청 처리 중 오류 발생", e);
+            log.error("Error processing generate request", e);
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @GetMapping("/status/{taskId}")
-    public ResponseEntity<?> getTaskStatus(@PathVariable String taskId) {
+    @Operation(summary = "Get task status",
+            description = "Retrieve the status of a game resource generation task")
+    public ResponseEntity<?> getTaskStatus(
+            @Parameter(description = "Task ID") @PathVariable String taskId,
+            Authentication authentication) {
         try {
-            Map<String, Object> status = gameResourceService.getTaskStatus(taskId);
+            Member member = (Member) authentication.getPrincipal();
+            Map<String, Object> status = gameResourceService.getTaskStatus(taskId, member.getId());
             return ResponseEntity.ok(status);
-        } catch (TaskNotFoundException e) {
-            log.error("Task not found", e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("작업 상태 조회 중 오류 발생", e);
+            log.error("Error retrieving task status", e);
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
-    @ExceptionHandler(TaskNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleTaskNotFoundException(TaskNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+    @GetMapping("/resources")
+    @Operation(summary = "Get user resources",
+            description = "Retrieve all resources created by the current user")
+    public ResponseEntity<?> getUserResources(Authentication authentication) {
+        try {
+            Member member = (Member) authentication.getPrincipal();
+            return ResponseEntity.ok(gameResourceService.getUserResources(member.getId()));
+        } catch (Exception e) {
+            log.error("Error retrieving user resources", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
     }
 }

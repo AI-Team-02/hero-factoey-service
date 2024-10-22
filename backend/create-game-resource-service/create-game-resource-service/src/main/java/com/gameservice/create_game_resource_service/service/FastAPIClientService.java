@@ -3,6 +3,7 @@ package com.gameservice.create_game_resource_service.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -16,44 +17,51 @@ import java.util.Map;
 @Service
 public class FastAPIClientService {
 
-    @Value("${fastapi.url}")
-    private String fastApiUrl;
+    @Value("${comfyui.server.url}")
+    private String comfyuiServerUrl;
 
-    // comfy.output.dir 속성 제거
+    @Value("${comfyui.server.port}")
+    private String comfyuiServerPort;
 
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
 
-    public FastAPIClientService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+
+    public FastAPIClientService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
-        this.objectMapper = objectMapper;
     }
 
     public Map<String, Object> generateImage(MultipartFile file, String prompt) throws Exception {
+        String url = String.format("http://%s:%s/generate", comfyuiServerUrl, comfyuiServerPort);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", file.getResource());
-        body.add("request", objectMapper.writeValueAsString(Map.of("prompt", prompt)));
+        body.add("file", new ByteArrayResource(file.getBytes()) {
+            @Override
+            public String getFilename() {
+                return file.getOriginalFilename();
+            }
+        });
+        body.add("prompt", prompt);
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-        ResponseEntity<Map> response = restTemplate.postForEntity(fastApiUrl + "/generate/", requestEntity, Map.class);
+        ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
         if (response.getStatusCode() == HttpStatus.OK || response.getStatusCode() == HttpStatus.ACCEPTED) {
-            log.info("Image generation request accepted. Task ID: {}", response.getBody().get("task_id"));
             return response.getBody();
         } else {
-            log.error("Failed to generate image. Status code: {}, Response: {}", response.getStatusCode(), response.getBody());
             throw new RuntimeException("Failed to generate image: " + response.getBody());
         }
     }
 
     public Map<String, Object> getTaskStatus(String taskId) {
-        ResponseEntity<Map> response = restTemplate.getForEntity(fastApiUrl + "/status/" + taskId, Map.class);
+        String url = String.format("http://%s:%s/status/%s", comfyuiServerUrl, comfyuiServerPort, taskId);
+
+        ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
         if (response.getStatusCode() == HttpStatus.OK) {
-            log.info("Retrieved status for task: {}. Status: {}", taskId, response.getBody().get("status"));
+            log.info("Retrieved status for task: {}. Status: {}", taskId, response.getBody());
             return response.getBody();
         } else {
             log.error("Failed to get task status. Task ID: {}, Status code: {}, Response: {}", taskId, response.getStatusCode(), response.getBody());
