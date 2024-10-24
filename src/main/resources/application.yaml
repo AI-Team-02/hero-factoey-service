@@ -1,0 +1,12 @@
+kakao:
+  client:
+    id: ${KAKAO_CLIENT_ID}
+
+spring:
+  application:
+    name: hero-factory-service
+
+logging:
+  level:
+    ai:
+      herofactoryservice: DEBUG
