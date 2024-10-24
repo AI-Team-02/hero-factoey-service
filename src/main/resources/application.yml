@@ -1,0 +1,34 @@
+server:
+  port: 8081
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000  # 1?
+          max-attempts: 3         # ?? ??? ??
+          max-interval: 10000     # ?? ??
+          multiplier: 2.0        # ??? ?? ??
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
+logging:
+  level:
+    ai.herofactoryservice: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: INFO
