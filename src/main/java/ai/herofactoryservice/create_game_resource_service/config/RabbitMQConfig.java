@@ -11,32 +11,26 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.support.RetryTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Configuration
 public class RabbitMQConfig {
-    // 상수 정의
     public static final String PAYMENT_QUEUE = "payment-queue";
     public static final String PAYMENT_EXCHANGE = "payment-exchange";
     public static final String PAYMENT_DLQ = "payment-dlq";
     public static final String PAYMENT_DLX = "payment-dlx";
 
-    private static final Logger log = LoggerFactory.getLogger(RabbitMQConfig.class);
 
-    // Message Converter
     @Bean
     public MessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();
     }
 
-
-    // Queue 설정
     @Bean
     public Queue paymentQueue() {
         return QueueBuilder.durable(PAYMENT_QUEUE)
                 .withArgument("x-dead-letter-exchange", PAYMENT_DLX)
                 .withArgument("x-dead-letter-routing-key", PAYMENT_DLQ)
+                .withArgument("x-message-ttl", 300000) // 5분
                 .build();
     }
 
@@ -45,18 +39,16 @@ public class RabbitMQConfig {
         return QueueBuilder.durable(PAYMENT_DLQ).build();
     }
 
-    // Exchange 설정
     @Bean
     public DirectExchange paymentExchange() {
-        return new DirectExchange(PAYMENT_EXCHANGE);
+        return new DirectExchange(PAYMENT_EXCHANGE, true, false);
     }
 
     @Bean
     public DirectExchange deadLetterExchange() {
-        return new DirectExchange(PAYMENT_DLX);
+        return new DirectExchange(PAYMENT_DLX, true, false);
     }
 
-    // Binding 설정
     @Bean
     public Binding paymentBinding() {
         return BindingBuilder.bind(paymentQueue())
@@ -71,34 +63,48 @@ public class RabbitMQConfig {
                 .with(PAYMENT_DLQ);
     }
 
-    // RabbitTemplate 설정
     @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+    public RetryTemplate retryTemplate() {
+        RetryTemplate retryTemplate = new RetryTemplate();
+        ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
+        backOffPolicy.setInitialInterval(1000);
+        backOffPolicy.setMultiplier(2.0);
+        backOffPolicy.setMaxInterval(10000);
+        retryTemplate.setBackOffPolicy(backOffPolicy);
+        return retryTemplate;
+    }
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,
+                                         MessageConverter messageConverter,
+                                         RetryTemplate retryTemplate) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(messageConverter());
-        template.setChannelTransacted(false); // 트랜잭션 모드 비활성화
+        template.setMessageConverter(messageConverter);
+        template.setRetryTemplate(retryTemplate);
+        template.setConfirmCallback((correlationData, ack, cause) -> {
+            if (!ack) {
+                // 메시지 전송 실패 처리
+                // correlationData를 통해 실패한 메시지 식별 가능
+            }
+        });
         return template;
     }
 
-    // Listener Container Factory 설정
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
-            ConnectionFactory connectionFactory) {
+            ConnectionFactory connectionFactory,
+            MessageConverter messageConverter) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(messageConverter());
+        factory.setMessageConverter(messageConverter);
         factory.setPrefetchCount(1);
-        factory.setChannelTransacted(false); // 트랜잭션 모드 비활성화
+        factory.setDefaultRequeueRejected(false);
         return factory;
     }
 
     @Bean
     public ConnectionFactory connectionFactory() {
         CachingConnectionFactory connectionFactory = new CachingConnectionFactory();
-        connectionFactory.setHost("localhost");
-        connectionFactory.setPort(5672);
-        connectionFactory.setUsername("guest");
-        connectionFactory.setPassword("guest");
         connectionFactory.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
         connectionFactory.setPublisherReturns(true);
         return connectionFactory;
