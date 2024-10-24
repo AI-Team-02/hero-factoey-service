@@ -21,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 public class KakaoLoginService {
 
     private final RestTemplate restTemplate;
+    private final UserService userService;
     
     @Value("${kakao.client.id}")
     private String clientId;
@@ -38,7 +39,11 @@ public class KakaoLoginService {
     
     public KakaoUserInfoResponseDto processKakaoLogin(String code) {
         String accessToken = getAccessToken(code);
-        return getUserInfo(accessToken);
+        KakaoUserInfoResponseDto userInfo = getUserInfo(accessToken);
+
+        // 회원가입 처리
+        userService.registerKakaoUser(userInfo);
+        return userInfo;
     }
     
     private String getAccessToken(String code) {
