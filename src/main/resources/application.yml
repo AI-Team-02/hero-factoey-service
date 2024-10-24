@@ -1,11 +1,7 @@
-# application.yml
+server:
+  port: 8081
+
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5433/payment_db
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-  
   jpa:
     hibernate:
       ddl-auto: update
@@ -14,18 +10,22 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  
+
   rabbitmq:
     host: localhost
     port: 5672
-    username: ${RABBITMQ_USERNAME}
-    password: ${RABBITMQ_PASSWORD}
-
-kakao:
-  pay:
-    admin:
-      key: ${KAKAO_ADMIN_KEY}
-    cid: ${KAKAO_CID}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000  # 1?
+          max-attempts: 3         # ?? ??? ??
+          max-interval: 10000     # ?? ??
+          multiplier: 2.0        # ??? ?? ??
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
 
 logging:
   level:
