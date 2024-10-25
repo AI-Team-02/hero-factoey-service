@@ -5,7 +5,10 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "payment_logs")
+@Table(name = "payment_logs",
+        indexes = {
+                @Index(name = "idx_payment_id_created_at", columnList = "payment_id,created_at")
+        })
 @Getter @Setter
 @Builder
 @NoArgsConstructor
@@ -16,10 +19,15 @@ public class PaymentLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id")
+    @JoinColumn(name = "payment_id", nullable = false)
     private Payment payment;
 
+    @Column(nullable = false)
     private String logType;
+
+    @Column(nullable = false)
     private String content;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 }

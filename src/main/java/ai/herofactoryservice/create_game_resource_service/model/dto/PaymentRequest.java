@@ -32,14 +32,14 @@ public class PaymentRequest {
 
     // 기본 URL 값 제공
     public String getSuccessUrl() {
-        return successUrl != null ? successUrl : "http://localhost:8080/payment/success";
+        return successUrl != null ? successUrl : "http://localhost:8081/payment/success";
     }
 
     public String getFailUrl() {
-        return failUrl != null ? failUrl : "http://localhost:8080/payment/fail";
+        return failUrl != null ? failUrl : "http://localhost:8081/payment/fail";
     }
 
     public String getCancelUrl() {
-        return cancelUrl != null ? cancelUrl : "http://localhost:8080/payment/cancel";
+        return cancelUrl != null ? cancelUrl : "http://localhost:8081/payment/cancel";
     }
 }

@@ -10,7 +10,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -27,6 +32,7 @@ public class KakaoPayService {
     private final PaymentRepository paymentRepository;
     private final PaymentLogRepository paymentLogRepository;
     private final PaymentProducer paymentProducer;
+    private final PlatformTransactionManager transactionManager;
 
     @Value("${kakao.pay.admin.key}")
     private String adminKey;
@@ -34,57 +40,287 @@ public class KakaoPayService {
     @Value("${kakao.pay.cid}")
     private String cid;
 
-    @Transactional
-    public PaymentResponse initiatePayment(PaymentRequest request) {  // Payment -> PaymentRequest로 변경
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public PaymentResponse initiatePayment(PaymentRequest request) {
         String paymentId = UUID.randomUUID().toString();
         String orderId = UUID.randomUUID().toString();
 
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        TransactionStatus status = transactionManager.getTransaction(def);
+
         try {
-            // 카카오페이 결제 준비 API 호출
             KakaoPayReadyResponse kakaoResponse = preparePayment(paymentId, orderId, request);
 
-            // 결제 정보 저장
-            Payment payment = Payment.builder()
-                    .paymentId(paymentId)
-                    .orderId(orderId)
-                    .tid(kakaoResponse.getTid())
-                    .shopItemId(request.getShopItemId())
-                    .memberId(request.getMemberId())
-                    .amount(request.getAmount())
-                    .itemName(request.getItemName())
-                    .status(PaymentStatus.READY)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-
+            Payment payment = createPayment(paymentId, orderId, request, kakaoResponse);
             paymentRepository.save(payment);
+
             savePaymentLog(payment, "READY", "결제 준비");
 
-            // 메시지 큐로 결제 정보 전송
-            PaymentMessage message = PaymentMessage.builder()
-                    .paymentId(paymentId)
-                    .shopItemId(request.getShopItemId())
-                    .memberId(request.getMemberId())
-                    .amount(request.getAmount())
-                    .status(PaymentStatus.READY)
-                    .build();
-
+            PaymentMessage message = createPaymentMessage(payment);
             paymentProducer.sendPaymentMessage(message);
 
-            return PaymentResponse.builder()
-                    .paymentId(paymentId)
-                    .status(PaymentStatus.READY)
-                    .nextRedirectPcUrl(kakaoResponse.getNextRedirectPcUrl())
-                    .nextRedirectMobileUrl(kakaoResponse.getNextRedirectMobileUrl())
-                    .tid(kakaoResponse.getTid())
-                    .build();
+            transactionManager.commit(status);
+
+            return createPaymentResponse(payment, kakaoResponse);
 
         } catch (Exception e) {
+            transactionManager.rollback(status);
             log.error("결제 준비 중 오류 발생", e);
             throw new PaymentException("결제 준비 중 오류가 발생했습니다.", e);
         }
     }
 
-    private KakaoPayReadyResponse preparePayment(String paymentId, String orderId, PaymentRequest request) {  // Payment -> PaymentRequest로 변경
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public KakaoPayApproveResponse approvePayment(String pgToken, String paymentId) {
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        TransactionStatus status = transactionManager.getTransaction(def);
+
+        try {
+            Payment payment = paymentRepository.findByPaymentIdWithLock(paymentId)
+                    .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+
+            validatePaymentStatus(payment);
+
+            KakaoPayApproveResponse response = processKakaoPayApproval(payment, pgToken);
+
+            payment.setStatus(PaymentStatus.COMPLETED);
+            payment.setApprovedAt(LocalDateTime.now());
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            savePaymentLog(payment, "APPROVE", "결제 승인");
+
+            PaymentMessage message = createPaymentMessage(payment);
+            paymentProducer.sendPaymentMessage(message);
+
+            transactionManager.commit(status);
+            return response;
+
+        } catch (Exception e) {
+            transactionManager.rollback(status);
+            handlePaymentApprovalError(paymentId, e);
+            throw new PaymentException("결제 승인 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public KakaoPayCancelResponse cancelPayment(String paymentId, String cancelReason) {
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        TransactionStatus status = transactionManager.getTransaction(def);
+
+        try {
+            Payment payment = paymentRepository.findByPaymentIdWithLock(paymentId)
+                    .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+
+            validateCancellablePayment(payment);
+
+            KakaoPayCancelResponse response = processKakaoPayCancel(payment, cancelReason);
+
+            payment.setStatus(PaymentStatus.CANCELED);
+            payment.setCancelAmount(payment.getAmount());
+            payment.setCancelReason(cancelReason);
+            payment.setCanceledAt(LocalDateTime.now());
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            savePaymentLog(payment, "CANCEL", "결제 취소: " + cancelReason);
+
+            PaymentMessage message = createCancellationMessage(payment);
+            paymentProducer.sendPaymentMessage(message);
+
+            transactionManager.commit(status);
+            return response;
+
+        } catch (Exception e) {
+            transactionManager.rollback(status);
+            handlePaymentCancellationError(paymentId, e);
+            throw new PaymentException("결제 취소 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    @Transactional
+    public void processPayment(PaymentMessage message) {
+        Payment payment = paymentRepository.findByPaymentIdWithLock(message.getPaymentId())
+                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+
+        try {
+            validatePaymentDetails(payment, message);
+
+            payment.setStatus(PaymentStatus.IN_PROGRESS);
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            savePaymentLog(payment, "PROCESS", "결제 처리 시작");
+
+            processPaymentLogic(payment);
+
+            payment.setStatus(PaymentStatus.COMPLETED);
+            payment.setUpdatedAt(LocalDateTime.now());
+            payment.setApprovedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            savePaymentLog(payment, "COMPLETE", "결제 처리 완료");
+
+        } catch (Exception e) {
+            handlePaymentProcessError(payment.getPaymentId(), e);
+            throw new PaymentException("결제 처리 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentStatus(String paymentId) {
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .status(payment.getStatus())
+                .errorMessage(payment.getErrorMessage())
+                .build();
+    }
+
+    // Private helper methods
+    private Payment createPayment(String paymentId, String orderId, PaymentRequest request,
+                                  KakaoPayReadyResponse kakaoResponse) {
+        return Payment.builder()
+                .paymentId(paymentId)
+                .orderId(orderId)
+                .tid(kakaoResponse.getTid())
+                .shopItemId(request.getShopItemId())
+                .memberId(request.getMemberId())
+                .amount(request.getAmount())
+                .itemName(request.getItemName())
+                .status(PaymentStatus.READY)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    private PaymentMessage createPaymentMessage(Payment payment) {
+        return PaymentMessage.builder()
+                .paymentId(payment.getPaymentId())
+                .shopItemId(payment.getShopItemId())
+                .memberId(payment.getMemberId())
+                .amount(payment.getAmount())
+                .status(payment.getStatus())
+                .build();
+    }
+
+    private PaymentMessage createCancellationMessage(Payment payment) {
+        return PaymentMessage.builder()
+                .paymentId(payment.getPaymentId())
+                .shopItemId(payment.getShopItemId())
+                .memberId(payment.getMemberId())
+                .amount(payment.getAmount())
+                .status(PaymentStatus.CANCELED)
+                .build();
+    }
+
+    private PaymentResponse createPaymentResponse(Payment payment, KakaoPayReadyResponse kakaoResponse) {
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .status(payment.getStatus())
+                .nextRedirectPcUrl(kakaoResponse.getNextRedirectPcUrl())
+                .nextRedirectMobileUrl(kakaoResponse.getNextRedirectMobileUrl())
+                .tid(kakaoResponse.getTid())
+                .build();
+    }
+
+    private void validatePaymentDetails(Payment payment, PaymentMessage message) {
+        if (!payment.getAmount().equals(message.getAmount())) {
+            log.error("Payment amount mismatch - Payment: {}, Message: {}",
+                    payment.getAmount(), message.getAmount());
+            throw new PaymentException("결제 금액이 일치하지 않습니다.");
+        }
+        if (!payment.getShopItemId().equals(message.getShopItemId())) {
+            log.error("Shop item ID mismatch - Payment: {}, Message: {}",
+                    payment.getShopItemId(), message.getShopItemId());
+            throw new PaymentException("상품 정보가 일치하지 않습니다.");
+        }
+        if (!payment.getMemberId().equals(message.getMemberId())) {
+            log.error("Member ID mismatch - Payment: {}, Message: {}",
+                    payment.getMemberId(), message.getMemberId());
+            throw new PaymentException("회원 정보가 일치하지 않습니다.");
+        }
+    }
+
+    private void validatePaymentStatus(Payment payment) {
+        if (payment.getStatus() != PaymentStatus.READY) {
+            throw new PaymentException("유효하지 않은 결제 상태입니다.");
+        }
+    }
+
+    private void validateCancellablePayment(Payment payment) {
+        if (!payment.getStatus().canCancel()) {
+            throw new PaymentException("취소할 수 없는 결제 상태입니다.");
+        }
+    }
+
+    private void savePaymentLog(Payment payment, String logType, String content) {
+        PaymentLog log = PaymentLog.builder()
+                .payment(payment)
+                .logType(logType)
+                .content(content)
+                .createdAt(LocalDateTime.now())
+                .build();
+        paymentLogRepository.save(log);
+    }
+
+    private void processPaymentLogic(Payment payment) {
+        log.info("Processing payment: {}", payment.getPaymentId());
+    }
+
+    private void handlePaymentProcessError(String paymentId, Exception e) {
+        try {
+            Payment payment = paymentRepository.findByPaymentId(paymentId)
+                    .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setErrorMessage(e.getMessage());
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            savePaymentLog(payment, "FAIL", "결제 처리 실패: " + e.getMessage());
+        } catch (Exception ex) {
+            log.error("결제 에러 처리 중 추가 오류 발생", ex);
+        }
+    }
+
+    private void handlePaymentApprovalError(String paymentId, Exception e) {
+        try {
+            Payment payment = paymentRepository.findByPaymentId(paymentId)
+                    .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setErrorMessage(e.getMessage());
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            savePaymentLog(payment, "FAIL", "결제 승인 실패: " + e.getMessage());
+        } catch (Exception ex) {
+            log.error("결제 승인 에러 처리 중 추가 오류 발생", ex);
+        }
+    }
+
+    private void handlePaymentCancellationError(String paymentId, Exception e) {
+        try {
+            Payment payment = paymentRepository.findByPaymentId(paymentId)
+                    .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setErrorMessage(e.getMessage());
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            savePaymentLog(payment, "FAIL", "결제 취소 실패: " + e.getMessage());
+        } catch (Exception ex) {
+            log.error("결제 취소 에러 처리 중 추가 오류 발생", ex);
+        }
+    }
+
+    private KakaoPayReadyResponse preparePayment(String paymentId, String orderId, PaymentRequest request) {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Authorization", "KakaoAK " + adminKey);
         headers.add("Content-Type", "application/x-www-form-urlencoded;charset=utf-8");
@@ -110,172 +346,45 @@ public class KakaoPayService {
         );
     }
 
-    @Transactional
-    public KakaoPayApproveResponse approvePayment(String pgToken, String paymentId) {
-        Payment payment = paymentRepository.findByPaymentId(paymentId)
-                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+    private KakaoPayApproveResponse processKakaoPayApproval(Payment payment, String pgToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Authorization", "KakaoAK " + adminKey);
+        headers.add("Content-Type", "application/x-www-form-urlencoded;charset=utf-8");
 
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("Authorization", "KakaoAK " + adminKey);
-            headers.add("Content-Type", "application/x-www-form-urlencoded;charset=utf-8");
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("cid", cid);
+        params.add("tid", payment.getTid());
+        params.add("partner_order_id", payment.getOrderId());
+        params.add("partner_user_id", payment.getMemberId().toString());
+        params.add("pg_token", pgToken);
 
-            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-            params.add("cid", cid);
-            params.add("tid", payment.getTid());
-            params.add("partner_order_id", payment.getOrderId());
-            params.add("partner_user_id", payment.getMemberId().toString());
-            params.add("pg_token", pgToken);
+        HttpEntity<MultiValueMap<String, String>> body = new HttpEntity<>(params, headers);
 
-            HttpEntity<MultiValueMap<String, String>> body = new HttpEntity<>(params, headers);
-
-            KakaoPayApproveResponse response = restTemplate.postForObject(
-                    "https://kapi.kakao.com/v1/payment/approve",
-                    body,
-                    KakaoPayApproveResponse.class
-            );
-
-            payment.setStatus(PaymentStatus.COMPLETED);
-            payment.setApprovedAt(LocalDateTime.now());
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            savePaymentLog(payment, "APPROVE", "결제 승인");
-
-            return response;
-
-        } catch (Exception e) {
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setErrorMessage(e.getMessage());
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            savePaymentLog(payment, "FAIL", "결제 승인 실패: " + e.getMessage());
-            throw new PaymentException("결제 승인 중 오류가 발생했습니다.", e);
-        }
+        return restTemplate.postForObject(
+                "https://kapi.kakao.com/v1/payment/approve",
+                body,
+                KakaoPayApproveResponse.class
+        );
     }
 
-    private void savePaymentLog(Payment payment, String logType, String content) {
-        PaymentLog log = PaymentLog.builder()
-                .payment(payment)
-                .logType(logType)
-                .content(content)
-                .createdAt(LocalDateTime.now())
-                .build();
-        paymentLogRepository.save(log);
-    }
+    private KakaoPayCancelResponse processKakaoPayCancel(Payment payment, String cancelReason) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Authorization", "KakaoAK " + adminKey);
+        headers.add("Content-Type", "application/x-www-form-urlencoded;charset=utf-8");
 
-    // 결제 상태 조회
-    @Transactional(readOnly = true)
-    public PaymentResponse getPaymentStatus(String paymentId) {
-        Payment payment = paymentRepository.findByPaymentId(paymentId)
-                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("cid", cid);
+        params.add("tid", payment.getTid());
+        params.add("cancel_amount", payment.getAmount().toString());
+        params.add("cancel_tax_free_amount", "0");
+        params.add("cancel_reason", cancelReason);
 
-        return PaymentResponse.builder()
-                .paymentId(payment.getPaymentId())
-                .status(payment.getStatus())
-                .errorMessage(payment.getErrorMessage())
-                .build();
-    }
+        HttpEntity<MultiValueMap<String, String>> body = new HttpEntity<>(params, headers);
 
-    @Transactional
-    public void processPayment(PaymentMessage message) {
-        Payment payment = paymentRepository.findByPaymentId(message.getPaymentId())
-                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
-
-        try {
-            // 결제 상태 검증
-            if (payment.getStatus() != PaymentStatus.READY) {
-                throw new PaymentException("유효하지 않은 결제 상태입니다.");
-            }
-
-            // 결제 정보 검증
-            validatePaymentDetails(payment, message);
-
-            // 결제 처리 상태 업데이트
-            payment.setStatus(PaymentStatus.IN_PROGRESS);
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            savePaymentLog(payment, "PROCESS", "결제 처리 시작");
-
-            // 여기에 실제 결제 처리 로직 추가
-            // 예: 외부 결제 시스템 연동, 재고 확인 등
-
-            // 처리 완료 후 상태 업데이트
-            payment.setStatus(PaymentStatus.COMPLETED);
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            savePaymentLog(payment, "COMPLETE", "결제 처리 완료");
-
-        } catch (Exception e) {
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setErrorMessage(e.getMessage());
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            savePaymentLog(payment, "FAIL", "결제 처리 실패: " + e.getMessage());
-            throw new PaymentException("결제 처리 중 오류가 발생했습니다.", e);
-        }
-    }
-
-    private void validatePaymentDetails(Payment payment, PaymentMessage message) {
-        if (!payment.getAmount().equals(message.getAmount())) {
-            throw new PaymentException("결제 금액이 일치하지 않습니다.");
-        }
-        if (!payment.getShopItemId().equals(message.getShopItemId())) {
-            throw new PaymentException("상품 정보가 일치하지 않습니다.");
-        }
-        if (!payment.getMemberId().equals(message.getMemberId())) {
-            throw new PaymentException("회원 정보가 일치하지 않습니다.");
-        }
-    }
-    @Transactional
-    public KakaoPayCancelResponse cancelPayment(String paymentId, String cancelReason) {
-        Payment payment = paymentRepository.findByPaymentId(paymentId)
-                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
-
-        if (payment.getStatus() != PaymentStatus.COMPLETED) {
-            throw new PaymentException("완료된 결제만 취소할 수 있습니다.");
-        }
-
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("Authorization", "KakaoAK " + adminKey);
-            headers.add("Content-Type", "application/x-www-form-urlencoded;charset=utf-8");
-
-            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-            params.add("cid", cid);
-            params.add("tid", payment.getTid());
-            params.add("cancel_amount", payment.getAmount().toString());
-            params.add("cancel_tax_free_amount", "0");
-            params.add("cancel_reason", cancelReason);
-
-            HttpEntity<MultiValueMap<String, String>> body = new HttpEntity<>(params, headers);
-
-            KakaoPayCancelResponse response = restTemplate.postForObject(
-                    "https://kapi.kakao.com/v1/payment/cancel",
-                    body,
-                    KakaoPayCancelResponse.class
-            );
-
-            // 결제 정보 업데이트
-            payment.setStatus(PaymentStatus.CANCELED);
-            payment.setCancelAmount(payment.getAmount());
-            payment.setCancelReason(cancelReason);
-            payment.setCanceledAt(LocalDateTime.now());
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            // 로그 저장
-            savePaymentLog(payment, "CANCEL", "결제 취소: " + cancelReason);
-
-            return response;
-
-        } catch (Exception e) {
-            savePaymentLog(payment, "CANCEL_FAIL", "결제 취소 실패: " + e.getMessage());
-            throw new PaymentException("결제 취소 중 오류가 발생했습니다.", e);
-        }
+        return restTemplate.postForObject(
+                "https://kapi.kakao.com/v1/payment/cancel",
+                body,
+                KakaoPayCancelResponse.class
+        );
     }
 }

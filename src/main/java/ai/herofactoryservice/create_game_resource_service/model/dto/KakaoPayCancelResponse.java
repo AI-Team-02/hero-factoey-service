@@ -36,6 +36,7 @@ public class KakaoPayCancelResponse {
     @JsonProperty("canceled_at")
     private String canceledAt;     // 결제 취소 시간
 
+    // 금액 정보를 위한 중첩 클래스들
     @Data
     public static class Amount {
         private Integer total;     // 총 결제 금액
