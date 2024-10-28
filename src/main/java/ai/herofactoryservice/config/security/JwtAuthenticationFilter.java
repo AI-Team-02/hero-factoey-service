@@ -25,8 +25,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String token = getJwtFromRequest(request);
-        log.info("Request URI: {}", request.getRequestURI());
-        log.info("Token received: {}", token != null ? "yes" : "no");
+        log.debug("Request URI: {}", request.getRequestURI());
+        log.debug("Token received: {}", token != null ? "yes" : "no");
 
         try {
             if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
