@@ -1,7 +1,10 @@
 package ai.herofactoryservice.login.service;
 
+import ai.herofactoryservice.config.security.JwtTokenProvider;
 import ai.herofactoryservice.login.dto.KakaoTokenResponseDto;
 import ai.herofactoryservice.login.dto.KakaoUserInfoResponseDto;
+import ai.herofactoryservice.login.dto.LoginResponseDto;
+import ai.herofactoryservice.login.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +25,7 @@ public class KakaoLoginService {
 
     private final RestTemplate restTemplate;
     private final UserService userService;
+    private final JwtTokenProvider jwtTokenProvider;
     
     @Value("${kakao.client.id}")
     private String clientId;
@@ -37,13 +41,17 @@ public class KakaoLoginService {
                       + "&response_type=code";
     }
     
-    public KakaoUserInfoResponseDto processKakaoLogin(String code) {
+    public LoginResponseDto processKakaoLogin(String code) {
         String accessToken = getAccessToken(code);
         KakaoUserInfoResponseDto userInfo = getUserInfo(accessToken);
 
         // 회원가입 처리
-        userService.registerKakaoUser(userInfo);
-        return userInfo;
+        User user = userService.registerKakaoUser(userInfo);
+        String jwtToken = jwtTokenProvider.createToken(user.getId());
+
+        return LoginResponseDto.builder()
+                .accessToken(jwtToken)
+                .build();
     }
     
     private String getAccessToken(String code) {
