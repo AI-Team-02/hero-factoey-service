@@ -2,6 +2,7 @@ package ai.herofactoryservice.login.controller;
 
 
 import ai.herofactoryservice.login.dto.KakaoUserInfoResponseDto;
+import ai.herofactoryservice.login.dto.LoginResponseDto;
 import ai.herofactoryservice.login.service.KakaoLoginService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 
 @Controller
@@ -27,9 +29,10 @@ public class KakaoLoginController {
     }
 
     @GetMapping("/callback")
-    public ResponseEntity<KakaoUserInfoResponseDto> kakaoCallback(@RequestParam String code) {
+    @ResponseBody
+    public LoginResponseDto kakaoCallback(@RequestParam String code) {
         log.info("Kakao callback received with code");
         log.debug("code = {}", code);
-        return ResponseEntity.ok(kakaoLoginService.processKakaoLogin(code));
+        return kakaoLoginService.processKakaoLogin(code);
     }
 }
