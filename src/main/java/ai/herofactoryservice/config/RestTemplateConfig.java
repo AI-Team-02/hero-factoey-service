@@ -1,4 +1,4 @@
-package ai.herofactoryservice.gameobject.config;
+package ai.herofactoryservice.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
