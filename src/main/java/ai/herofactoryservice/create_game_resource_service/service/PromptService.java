@@ -2,8 +2,11 @@ package ai.herofactoryservice.create_game_resource_service.service;
 
 import ai.herofactoryservice.create_game_resource_service.exception.PromptException;
 import ai.herofactoryservice.create_game_resource_service.messaging.PromptProducer;
-import ai.herofactoryservice.create_game_resource_service.model.*;
-import ai.herofactoryservice.create_game_resource_service.model.dto.*;
+import ai.herofactoryservice.create_game_resource_service.model.Prompt;
+import ai.herofactoryservice.create_game_resource_service.model.PromptStatus;
+import ai.herofactoryservice.create_game_resource_service.model.PromptMessage;
+import ai.herofactoryservice.create_game_resource_service.model.dto.PromptRequest;
+import ai.herofactoryservice.create_game_resource_service.model.dto.PromptResponse;
 import ai.herofactoryservice.create_game_resource_service.repository.PromptRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +20,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -28,6 +32,9 @@ public class PromptService {
     private final OpenAiApi openAiApi;
     private final PlatformTransactionManager transactionManager;
 
+    /**
+     * 새로운 프롬프트를 생성하고 처리 큐에 전송합니다.
+     */
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public PromptResponse createPrompt(PromptRequest request) {
         String promptId = UUID.randomUUID().toString();
@@ -48,12 +55,11 @@ public class PromptService {
 
             promptRepository.save(prompt);
 
-            // 프롬프트 처리 메시지 생성 및 전송
-            PromptMessage message = createPromptMessage(prompt, request.getSketchData());
+            // 메시지 큐로 전송
+            PromptMessage message = createPromptMessage(prompt);
             promptProducer.sendPromptMessage(message);
 
             transactionManager.commit(status);
-
             return createPromptResponse(prompt);
 
         } catch (Exception e) {
@@ -63,6 +69,9 @@ public class PromptService {
         }
     }
 
+    /**
+     * 큐에서 받은 프롬프트 메시지를 처리합니다.
+     */
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void processPrompt(PromptMessage message) {
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
@@ -70,6 +79,7 @@ public class PromptService {
         TransactionStatus status = transactionManager.getTransaction(def);
 
         try {
+            // 프롬프트 조회 및 상태 검증
             Prompt prompt = promptRepository.findByPromptIdWithLock(message.getPromptId())
                     .orElseThrow(() -> new PromptException("프롬프트 정보를 찾을 수 없습니다."));
 
@@ -80,25 +90,23 @@ public class PromptService {
             prompt.setStatus(PromptStatus.PROCESSING);
             promptRepository.save(prompt);
 
-            // 프롬프트 분석 및 개선
-            List<String> keywords = extractKeywords(prompt.getOriginalPrompt());
-            String enhancedPrompt = enhancePrompt(prompt.getOriginalPrompt(), keywords);
-            Float[] embedding = generateEmbedding(enhancedPrompt);
+            // 1. 기본 키워드 추출
+            List<String> baseKeywords = extractKeywords(prompt.getOriginalPrompt());
 
-            // 유사한 프롬프트 검색 및 추가 키워드 추천
+            // 2. 프롬프트 개선
+            String enhancedPrompt = enhancePrompt(prompt.getOriginalPrompt(), baseKeywords);
+
+            // 3. 카테고리별 키워드 분석
+            List<Map<String, List<String>>> categoryKeywords = openAiApi.suggestPromptKeywords(prompt.getOriginalPrompt());
+
+            // 4. 임베딩 생성 및 유사 프롬프트 검색
+            double[] embedding = openAiApi.embeddings(enhancedPrompt);
             List<String> additionalKeywords = findAdditionalKeywords(embedding);
-            keywords.addAll(additionalKeywords);
 
             // 결과 저장
-            prompt.setEnhancedPrompt(enhancedPrompt);
-            prompt.setEmbedding(embedding);
-            prompt.setKeywords(keywords);
-            prompt.setStatus(PromptStatus.COMPLETED);
-            prompt.setCompletedAt(LocalDateTime.now());
-            prompt.setUpdatedAt(LocalDateTime.now());
+            updatePromptWithResults(prompt, enhancedPrompt, categoryKeywords, embedding, additionalKeywords);
 
             promptRepository.save(prompt);
-
             transactionManager.commit(status);
 
         } catch (Exception e) {
@@ -108,6 +116,9 @@ public class PromptService {
         }
     }
 
+    /**
+     * 프롬프트의 현재 상태를 조회합니다.
+     */
     @Transactional(readOnly = true)
     public PromptResponse getPromptStatus(String promptId) {
         Prompt prompt = promptRepository.findByPromptId(promptId)
@@ -116,13 +127,35 @@ public class PromptService {
         return createPromptResponse(prompt);
     }
 
+    /**
+     * 유사한 프롬프트들의 키워드를 검색합니다.
+     */
+    @Transactional(readOnly = true)
+    public List<String> findSimilarKeywords(String promptId) {
+        Prompt prompt = promptRepository.findByPromptId(promptId)
+                .orElseThrow(() -> new PromptException("프롬프트 정보를 찾을 수 없습니다."));
+
+        return findAdditionalKeywords(prompt.getEmbedding());
+    }
+
     // Private helper methods
-    private PromptMessage createPromptMessage(Prompt prompt, String sketchData) {
+
+    private void updatePromptWithResults(Prompt prompt, String enhancedPrompt,
+                                         List<Map<String, List<String>>> categoryKeywords, double[] embedding, List<String> keywords) {
+        prompt.setEnhancedPrompt(enhancedPrompt);
+        prompt.setCategoryKeywords(categoryKeywords);
+        prompt.setEmbedding(embedding);
+        prompt.setKeywords(keywords);
+        prompt.setStatus(PromptStatus.COMPLETED);
+        prompt.setCompletedAt(LocalDateTime.now());
+        prompt.setUpdatedAt(LocalDateTime.now());
+    }
+
+    private PromptMessage createPromptMessage(Prompt prompt) {
         return PromptMessage.builder()
                 .promptId(prompt.getPromptId())
                 .memberId(prompt.getMemberId())
                 .originalPrompt(prompt.getOriginalPrompt())
-                .sketchData(sketchData)
                 .status(prompt.getStatus())
                 .build();
     }
@@ -130,10 +163,14 @@ public class PromptService {
     private PromptResponse createPromptResponse(Prompt prompt) {
         return PromptResponse.builder()
                 .promptId(prompt.getPromptId())
+                .originalPrompt(prompt.getOriginalPrompt())
                 .enhancedPrompt(prompt.getEnhancedPrompt())
                 .recommendedKeywords(prompt.getKeywords())
+                .categoryKeywords(prompt.getCategoryKeywords())
                 .status(prompt.getStatus())
                 .errorMessage(prompt.getErrorMessage())
+                .createdAt(prompt.getCreatedAt())
+                .completedAt(prompt.getCompletedAt())
                 .build();
     }
 
@@ -159,11 +196,7 @@ public class PromptService {
         return openAiApi.chat(systemPrompt, promptWithKeywords);
     }
 
-    private Float[] generateEmbedding(String text) {
-        return openAiApi.embeddings(text);
-    }
-
-    private List<String> findAdditionalKeywords(Float[] embedding) {
+    private List<String> findAdditionalKeywords(double[] embedding) {
         List<Prompt> similarPrompts = promptRepository.findSimilarPrompts(embedding, 5);
         return similarPrompts.stream()
                 .flatMap(p -> p.getKeywords().stream())

@@ -81,7 +81,7 @@ public class OpenAiApi {
         }
     }
 
-    public Float[] embeddings(String text) {
+    public double[] embeddings(String text) {
         String url = baseUrl + "/embeddings";
 
         try {
@@ -106,9 +106,9 @@ public class OpenAiApi {
                         .get(0)
                         .path("embedding");
 
-                Float[] embeddings = new Float[embeddingData.size()];
+                double[] embeddings = new double[embeddingData.size()];
                 for (int i = 0; i < embeddingData.size(); i++) {
-                    embeddings[i] = (float) embeddingData.get(i).asDouble();
+                    embeddings[i] = embeddingData.get(i).asDouble();
                 }
                 return embeddings;
             }
