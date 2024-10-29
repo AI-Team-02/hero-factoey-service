@@ -18,10 +18,10 @@ spring:
       simple:
         retry:
           enabled: true
-          initial-interval: 1000  # 1?
-          max-attempts: 3         # ?? ??? ??
-          max-interval: 10000     # ?? ??
-          multiplier: 2.0        # ??? ?? ??
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2.0
     publisher-confirm-type: correlated
     publisher-returns: true
     template:
@@ -32,3 +32,4 @@ logging:
     ai.herofactoryservice: DEBUG
     org.springframework.web: INFO
     org.hibernate: INFO
+    org.springframework.ai: DEBUG  # AI 관련 로깅 추가

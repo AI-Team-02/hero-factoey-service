@@ -6,29 +6,33 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import ai.herofactoryservice.create_game_resource_service.exception.GlobalExceptionHandler.ErrorResponse;
+
 @Slf4j
 @RestControllerAdvice
-public class PaymentExceptionHandler {
+public class PromptExceptionHandler {
 
-    @ExceptionHandler(PaymentException.class)
-    public ResponseEntity<ErrorResponse> handlePaymentException(PaymentException e) {
-        log.error("Payment error occurred: {}", e.getMessage(), e);
+    @ExceptionHandler(PromptException.class)
+    public ResponseEntity<ErrorResponse> handlePromptException(PromptException e) {
+        log.error("Prompt error occurred: {}", e.getMessage(), e);
 
         ErrorResponse response = ErrorResponse.builder()
-                .code(e.getErrorCode().getCode())
+                .code(e.getErrorCode())
                 .message(e.getMessage())
+                .details(e.getDetails())
                 .build();
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(Exception e) {
-        log.error("Unexpected error occurred: {}", e.getMessage(), e);
+    public ResponseEntity<ErrorResponse> handleGeneralException(Exception e) {
+        log.error("Unexpected error: ", e);
 
         ErrorResponse response = ErrorResponse.builder()
-                .code(PaymentErrorCode.PAYMENT_SYSTEM_ERROR.getCode())
+                .code(PromptErrorCode.PROMPT_SYSTEM_ERROR.getCode())
                 .message("시스템 오류가 발생했습니다.")
+                .details(e.getMessage())
                 .build();
 
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);

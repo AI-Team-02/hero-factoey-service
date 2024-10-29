@@ -1,11 +1,10 @@
 package ai.herofactoryservice.create_game_resource_service.messaging;
 
 import ai.herofactoryservice.create_game_resource_service.config.RabbitMQConfig;
-import ai.herofactoryservice.create_game_resource_service.exception.PaymentException;
+import ai.herofactoryservice.create_game_resource_service.exception.PromptException;
 import ai.herofactoryservice.create_game_resource_service.model.MessageLog;
-import ai.herofactoryservice.create_game_resource_service.model.PaymentMessage;
+import ai.herofactoryservice.create_game_resource_service.model.PromptMessage;
 import ai.herofactoryservice.create_game_resource_service.repository.MessageLogRepository;
-import ai.herofactoryservice.create_game_resource_service.repository.PaymentLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,13 +24,13 @@ import java.util.UUID;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PaymentProducer {
+public class PromptProducer {
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
     private final MessageLogRepository messageLogRepository;
 
     @Transactional
-    public void sendPaymentMessage(PaymentMessage message) {
+    public void sendPromptMessage(PromptMessage message) {
         String messageId = UUID.randomUUID().toString();
 
         try {
@@ -42,39 +41,44 @@ public class PaymentProducer {
             properties.setMessageId(messageId);
             properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
             properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
-            // LocalDateTime을 Date로 변환
-            properties.setTimestamp(Date.from(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant()));
+            properties.setTimestamp(Date.from(LocalDateTime.now()
+                    .atZone(ZoneId.systemDefault()).toInstant()));
+
+            // 스케치 데이터가 있는 경우 압축 처리
+            if (message.getSketchData() != null) {
+                compressSketchData(message);
+            }
 
             String messageJson = objectMapper.writeValueAsString(message);
             Message amqpMessage = new Message(messageJson.getBytes(), properties);
 
             CorrelationData correlationData = new CorrelationData(messageId);
             rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.PAYMENT_EXCHANGE,
-                    RabbitMQConfig.PAYMENT_QUEUE,
+                    RabbitMQConfig.PROMPT_EXCHANGE,
+                    RabbitMQConfig.PROMPT_QUEUE,
                     amqpMessage,
                     correlationData
             );
 
             // 메시지 전송 성공 로그
             saveMessageLog(message, messageId, "SENT", null);
-            log.info("Payment message sent successfully: {}", messageId);
+            log.info("Prompt message sent successfully: {}", messageId);
 
         } catch (Exception e) {
-            String errorMessage = "Failed to send payment message: " + e.getMessage();
+            String errorMessage = "Failed to send prompt message: " + e.getMessage();
             // 메시지 전송 실패 로그
             saveMessageLog(message, messageId, "FAILED", errorMessage);
-            log.error("Failed to send payment message: {}", messageId, e);
-            throw new PaymentException("메시지 전송 실패", e);
+            log.error("Failed to send prompt message: {}", messageId, e);
+            throw new PromptException("메시지 전송 실패", e);
         }
     }
 
-    private void saveMessageLog(PaymentMessage message, String messageId, String status, String errorMessage) {
+    private void saveMessageLog(PromptMessage message, String messageId, String status, String errorMessage) {
         try {
             MessageLog log = MessageLog.builder()
                     .messageId(messageId)
-                    .paymentId(message.getPaymentId())
-                    .promptId(null)  // payment 메시지는 promptId가 없음
+                    .promptId(message.getPromptId())
+                    .paymentId(null)  // prompt 메시지는 paymentId가 없음
                     .status(status)
                     .errorMessage(errorMessage)
                     .build();
@@ -87,5 +91,26 @@ public class PaymentProducer {
     @Transactional(readOnly = true)
     public boolean isMessageSent(String messageId) {
         return messageLogRepository.existsByMessageIdAndStatus(messageId, "SENT");
+    }
+
+    private void compressSketchData(PromptMessage message) {
+        try {
+            // Base64로 인코딩된 스케치 데이터가 너무 큰 경우를 대비한 압축 처리
+            if (message.getSketchData() != null &&
+                    message.getSketchData().length() > 1_000_000) { // 1MB 초과
+
+                log.info("Compressing large sketch data for prompt: {}",
+                        message.getPromptId());
+
+                // 이미지 품질 조정 또는 크기 축소 로직 구현
+                // 예: Base64 디코딩 → 이미지 압축 → Base64 인코딩
+                // 현재는 로깅만 수행
+                log.warn("Large sketch data detected. Size: {}",
+                        message.getSketchData().length());
+            }
+        } catch (Exception e) {
+            log.error("Failed to compress sketch data", e);
+            // 압축 실패 시 원본 데이터 유지
+        }
     }
 }

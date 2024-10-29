@@ -18,6 +18,10 @@ public class RabbitMQConfig {
     public static final String PAYMENT_EXCHANGE = "payment-exchange";
     public static final String PAYMENT_DLQ = "payment-dlq";
     public static final String PAYMENT_DLX = "payment-dlx";
+    public static final String PROMPT_QUEUE = "prompt-queue";
+    public static final String PROMPT_EXCHANGE = "prompt-exchange";
+    public static final String PROMPT_DLQ = "prompt-dlq";
+    public static final String PROMPT_DLX = "prompt-dlx";
 
 
     @Bean
@@ -108,5 +112,42 @@ public class RabbitMQConfig {
         connectionFactory.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
         connectionFactory.setPublisherReturns(true);
         return connectionFactory;
+    }
+    @Bean
+    public Queue promptQueue() {
+        return QueueBuilder.durable(PROMPT_QUEUE)
+                .withArgument("x-dead-letter-exchange", PROMPT_DLX)
+                .withArgument("x-dead-letter-routing-key", PROMPT_DLQ)
+                .withArgument("x-message-ttl", 300000)
+                .build();
+    }
+
+    @Bean
+    public Queue promptDeadLetterQueue() {
+        return QueueBuilder.durable(PROMPT_DLQ).build();
+    }
+
+    @Bean
+    public DirectExchange promptExchange() {
+        return new DirectExchange(PROMPT_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public DirectExchange promptDeadLetterExchange() {
+        return new DirectExchange(PROMPT_DLX, true, false);
+    }
+
+    @Bean
+    public Binding promptBinding() {
+        return BindingBuilder.bind(promptQueue())
+                .to(promptExchange())
+                .with(PROMPT_QUEUE);
+    }
+
+    @Bean
+    public Binding promptDeadLetterBinding() {
+        return BindingBuilder.bind(promptDeadLetterQueue())
+                .to(promptDeadLetterExchange())
+                .with(PROMPT_DLQ);
     }
 }
