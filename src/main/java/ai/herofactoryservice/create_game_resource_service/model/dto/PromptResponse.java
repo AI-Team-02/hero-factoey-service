@@ -17,7 +17,7 @@ import java.util.Map;
 public class PromptResponse {
     private String promptId;
     private String originalPrompt;
-    private String enhancedPrompt;
+    private String improvedPrompt;
     private List<String> recommendedKeywords;
     private List<Map<String, List<String>>> categoryKeywords;
     private PromptStatus status;

@@ -9,7 +9,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PromptRequest {
-    private Long memberId;
+    private String memberId;
     private String originalPrompt;
     private String sketchData;  // Base64 인코딩된 스케치 데이터
 }

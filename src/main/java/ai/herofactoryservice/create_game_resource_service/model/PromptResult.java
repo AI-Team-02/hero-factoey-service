@@ -23,7 +23,7 @@ public class PromptResult {
     private String originalPrompt;
 
     @Column(columnDefinition = "TEXT")
-    private String enhancedPrompt;
+    private String improvedPrompt;
 
     @Column(columnDefinition = "TEXT")
     private String result;

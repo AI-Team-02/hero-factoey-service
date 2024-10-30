@@ -128,7 +128,7 @@ public class OpenAiApi {
         return headers;
     }
 
-    public String enhancePromptForImageGeneration(String originalPrompt) {
+    public String improvedPromptForImageGeneration(String originalPrompt) {
         String systemPrompt = """
                 당신은 전문적인 사진작가이자 이미지 생성 전문가입니다.
                 주어진 프롬프트를 다음 요소들을 고려하여 더 상세하고 전문적인 이미지 생성 프롬프트로 개선해주세요:

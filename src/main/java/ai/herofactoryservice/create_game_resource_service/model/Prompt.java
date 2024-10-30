@@ -1,18 +1,18 @@
 package ai.herofactoryservice.create_game_resource_service.model;
 
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
+
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Entity
-@Table(name = "prompts",
-        indexes = {
-                @Index(name = "idx_prompt_id", columnList = "promptId"),
-                @Index(name = "idx_member_id", columnList = "memberId"),
-                @Index(name = "idx_status", columnList = "status")
-        })
+@Table(name = "prompts")
 @Getter
 @Setter
 @Builder
@@ -20,43 +20,59 @@ import java.util.Map;
 @AllArgsConstructor
 public class Prompt {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    @Column(nullable = false, unique = true, length = 36)
+    @Column(name = "prompt_id")
     private String promptId;
 
     @Column(nullable = false)
-    private Long memberId;
+    private String memberId;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String originalPrompt;
 
     @Column(columnDefinition = "TEXT")
-    private String enhancedPrompt;
+    private String improvedPrompt;
 
-    @Column(columnDefinition = "vector(1536)")
-    private double[] embedding;
+    @Column(name = "embedding_vector", columnDefinition = "vector")
+    private double[] embeddingVector;
 
-    @Convert(converter = CategoryKeywordsConverter.class)
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
-    private List<Map<String, List<String>>> categoryKeywords;  // 카테고리별 키워드 저장
+    @Builder.Default
+    private List<Map<String, List<String>>> categoryKeywords = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "prompt_keywords",
-            joinColumns = @JoinColumn(name = "prompt_id"))
-    private List<String> keywords;
+    @Type(JsonType.class)
+    @Column(columnDefinition = "jsonb")
+    @Builder.Default
+    private List<String> keywords = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private PromptStatus status;
-
     @Column(nullable = false)
+    @Builder.Default
+    private PromptStatus status = PromptStatus.PENDING;
+
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String errorMessage;
+
+    @Column
     private LocalDateTime completedAt;
 
-    @Column(length = 500)
-    private String errorMessage;
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

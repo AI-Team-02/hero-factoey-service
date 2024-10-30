@@ -17,7 +17,7 @@ public class PaymentRequest {
     private Long shopItemId;      // 상품 ID
 
     @NotNull(message = "회원 ID는 필수입니다.")
-    private Long memberId;        // 회원 ID
+    private String memberId;        // 회원 ID
 
     @NotBlank(message = "상품명은 필수입니다.")
     private String itemName;      // 상품명

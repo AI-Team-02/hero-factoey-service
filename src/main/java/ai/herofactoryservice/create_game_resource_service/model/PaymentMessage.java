@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 public class PaymentMessage {
     private String paymentId;
     private Long shopItemId;
-    private Long memberId;
+    private String memberId;
     private Long amount;
     private PaymentStatus status;
 }

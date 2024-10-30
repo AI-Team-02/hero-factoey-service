@@ -35,7 +35,7 @@ public class Payment {
     private Long shopItemId;     // 상품 ID
 
     @Column(nullable = false)
-    private Long memberId;       // 회원 ID
+    private String memberId;       // 회원 ID
 
     @Column(nullable = false)
     private Long amount;         // 결제 금액

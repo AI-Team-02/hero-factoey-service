@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PromptMessage {
     private String promptId;
-    private Long memberId;
+    private String memberId;
     private String originalPrompt;
     private String sketchData;
     private PromptStatus status;

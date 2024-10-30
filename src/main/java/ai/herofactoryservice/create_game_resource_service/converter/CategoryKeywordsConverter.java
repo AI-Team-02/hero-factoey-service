@@ -5,39 +5,44 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.type.descriptor.WrapperOptions;
+import org.hibernate.type.descriptor.java.JavaType;
+import org.hibernate.type.descriptor.jdbc.JsonJdbcType;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
-@Converter(autoApply = true)
+@Converter
 public class CategoryKeywordsConverter implements AttributeConverter<List<Map<String, List<String>>>, String> {
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonJdbcType jsonJdbcType = JsonJdbcType.INSTANCE;
 
     @Override
     public String convertToDatabaseColumn(List<Map<String, List<String>>> attribute) {
         try {
             if (attribute == null) {
-                return null;
+                return "[]";
             }
             return objectMapper.writeValueAsString(attribute);
         } catch (Exception e) {
-            log.error("카테고리 키워드를 JSON으로 변환 중 오류 발생", e);
-            throw new RuntimeException("카테고리 키워드 변환 실패", e);
+            log.error("Error converting category keywords to JSON", e);
+            return "[]";
         }
     }
 
     @Override
     public List<Map<String, List<String>>> convertToEntityAttribute(String dbData) {
         try {
-            if (dbData == null) {
-                return null;
+            if (dbData == null || dbData.isBlank()) {
+                return new ArrayList<>();
             }
             return objectMapper.readValue(dbData,
                     new TypeReference<List<Map<String, List<String>>>>() {});
         } catch (Exception e) {
-            log.error("JSON을 카테고리 키워드로 변환 중 오류 발생", e);
-            throw new RuntimeException("JSON 변환 실패", e);
+            log.error("Error converting JSON to category keywords", e);
+            return new ArrayList<>();
         }
     }
 }

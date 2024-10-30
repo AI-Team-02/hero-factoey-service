@@ -135,16 +135,18 @@ public class PromptService {
         Prompt prompt = promptRepository.findByPromptId(promptId)
                 .orElseThrow(() -> new PromptException("프롬프트 정보를 찾을 수 없습니다."));
 
-        return findAdditionalKeywords(prompt.getEmbedding());
+        return findAdditionalKeywords(prompt.getEmbeddingVector());
     }
 
     // Private helper methods
 
-    private void updatePromptWithResults(Prompt prompt, String enhancedPrompt,
-                                         List<Map<String, List<String>>> categoryKeywords, double[] embedding, List<String> keywords) {
-        prompt.setEnhancedPrompt(enhancedPrompt);
+    private void updatePromptWithResults(Prompt prompt, String improvedPrompt,
+                                         List<Map<String, List<String>>> categoryKeywords,
+                                         double[] embedding,
+                                         List<String> keywords) {
+        prompt.setImprovedPrompt(improvedPrompt);
         prompt.setCategoryKeywords(categoryKeywords);
-        prompt.setEmbedding(embedding);
+        prompt.setEmbeddingVector(embedding);
         prompt.setKeywords(keywords);
         prompt.setStatus(PromptStatus.COMPLETED);
         prompt.setCompletedAt(LocalDateTime.now());
@@ -164,7 +166,7 @@ public class PromptService {
         return PromptResponse.builder()
                 .promptId(prompt.getPromptId())
                 .originalPrompt(prompt.getOriginalPrompt())
-                .enhancedPrompt(prompt.getEnhancedPrompt())
+                .improvedPrompt(prompt.getImprovedPrompt())
                 .recommendedKeywords(prompt.getKeywords())
                 .categoryKeywords(prompt.getCategoryKeywords())
                 .status(prompt.getStatus())
