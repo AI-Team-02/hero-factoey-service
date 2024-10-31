@@ -20,7 +20,7 @@ public class TokenService {
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
     private static final long REFRESH_TOKEN_VALIDITY = 14 * 24 * 60 * 60; // 14일
 
-    public LoginResponseDto refreshTokens(String accessToken, String refreshToken) {
+    public LoginResponseDto reissueTokens(String accessToken, String refreshToken) {
         // Access Token에서 userId 추출 (만료되어도 추출 가능)
         Long userId = jwtTokenProvider.getUserId(accessToken);
         String refreshTokenKey = REFRESH_TOKEN_PREFIX + userId;
@@ -66,12 +66,7 @@ public class TokenService {
         return storedToken != null ;
     }
 
-
-    public void logout(String accessToken, String refreshToken) {
-        if (!jwtTokenProvider.validateToken(accessToken) || !jwtTokenProvider.validateToken(refreshToken)) {
-            throw new BadCredentialsException("Invalid tokens provided for logout");
-        }
-
+    public void logout(String accessToken) {
         Long userId = jwtTokenProvider.getUserId(accessToken);
         redisTemplate.delete(REFRESH_TOKEN_PREFIX + userId);
         log.info("User {} has been logged out successfully", userId);
