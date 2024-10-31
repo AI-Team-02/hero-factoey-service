@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Slf4j
 public class KakaoLoginController {
     private final KakaoLoginService kakaoLoginService;
-    private final TokenService tokenService;
 
     @GetMapping("/login")
     public String kakaoLogin() {
@@ -35,23 +34,5 @@ public class KakaoLoginController {
         log.info("Kakao callback received with code");
         log.debug("code = {}", code);
         return kakaoLoginService.processKakaoLogin(code);
-    }
-
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String bearerToken,
-                                       @RequestHeader("Refresh-Token") String refreshToken) {
-        String accessToken = bearerToken.substring(7);
-        tokenService.logout(accessToken, refreshToken);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/refresh")
-    public ResponseEntity<LoginResponseDto> refreshToken(
-            @RequestHeader("Authorization") String bearerToken,
-            @RequestHeader("Refresh-Token") String refreshToken
-    ) {
-        String accessToken = bearerToken.substring(7);
-        LoginResponseDto newTokens = tokenService.refreshTokens(accessToken, refreshToken);
-        return ResponseEntity.ok(newTokens);
     }
 }
