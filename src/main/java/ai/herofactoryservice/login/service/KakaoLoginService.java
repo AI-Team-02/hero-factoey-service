@@ -26,6 +26,7 @@ public class KakaoLoginService {
     private final RestTemplate restTemplate;
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenService tokenService;
     
     @Value("${kakao.client.id}")
     private String clientId;
@@ -42,15 +43,20 @@ public class KakaoLoginService {
     }
     
     public LoginResponseDto processKakaoLogin(String code) {
-        String accessToken = getAccessToken(code);
-        KakaoUserInfoResponseDto userInfo = getUserInfo(accessToken);
+        String kakaoAccessToken = getAccessToken(code);
+        KakaoUserInfoResponseDto userInfo = getUserInfo(kakaoAccessToken);
 
         // 회원가입 처리
         User user = userService.registerKakaoUser(userInfo);
-        String jwtToken = jwtTokenProvider.createToken(user.getId());
+
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.createRefreshToken();
+
+        tokenService.saveRefreshToken(user.getId(), refreshToken);
 
         return LoginResponseDto.builder()
-                .accessToken(jwtToken)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .build();
     }
     
