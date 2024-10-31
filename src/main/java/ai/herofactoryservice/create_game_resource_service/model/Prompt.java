@@ -35,8 +35,8 @@ public class Prompt {
     @Column(columnDefinition = "TEXT")
     private String improvedPrompt;
 
-//    @Column(name = "embedding_vector", columnDefinition = "vector")
-//    private double[] embeddingVector;
+    @Column(name = "embedding_vector", columnDefinition = "vector")
+    private double[] embeddingVector;
 
     @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")

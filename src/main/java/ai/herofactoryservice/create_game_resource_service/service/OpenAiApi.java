@@ -1,16 +1,19 @@
 package ai.herofactoryservice.create_game_resource_service.service;
 
 import ai.herofactoryservice.create_game_resource_service.exception.PromptException;
+import ai.herofactoryservice.create_game_resource_service.exception.RateLimitException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.util.concurrent.RateLimiter;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -21,6 +24,7 @@ public class OpenAiApi {
     private final String model;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final RateLimiter rateLimiter = RateLimiter.create(20.0); // 분당 20개 요청으로 제한
 
     @Builder
     public OpenAiApi(String apiKey, String baseUrl, String model, RestTemplate restTemplate) {
@@ -31,31 +35,21 @@ public class OpenAiApi {
         this.objectMapper = new ObjectMapper();
     }
 
+    public CompletableFuture<String> chatAsync(String systemPrompt, String userPrompt) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!rateLimiter.tryAcquire()) {
+                throw new RateLimitException("API 호출 한도 초과");
+            }
+            return chat(systemPrompt, userPrompt);
+        });
+    }
+
     public String chat(String systemPrompt, String userPrompt) {
         String url = baseUrl + "/chat/completions";
 
         try {
-            HttpHeaders headers = createHeaders();
-
-            Map<String, Object> systemMessage = new HashMap<>();
-            systemMessage.put("role", "system");
-            systemMessage.put("content", systemPrompt);
-
-            Map<String, Object> userMessage = new HashMap<>();
-            userMessage.put("role", "user");
-            userMessage.put("content", userPrompt);
-
-            List<Map<String, Object>> messages = new ArrayList<>();
-            messages.add(systemMessage);
-            messages.add(userMessage);
-
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", model);
-            requestBody.put("messages", messages);
-            requestBody.put("temperature", 0.7);
-            requestBody.put("max_tokens", 2048);
-
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+            Map<String, Object> requestBody = createChatRequestBody(systemPrompt, userPrompt);
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, createHeaders());
 
             ResponseEntity<JsonNode> response = restTemplate.exchange(
                     url,
@@ -65,20 +59,49 @@ public class OpenAiApi {
             );
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return response.getBody()
-                        .path("choices")
-                        .get(0)
-                        .path("message")
-                        .path("content")
-                        .asText();
+                return extractContentFromResponse(response.getBody());
             }
 
             throw new PromptException("OpenAI API 응답 처리 실패");
 
+        } catch (HttpClientErrorException.TooManyRequests e) {
+            log.warn("OpenAI API 호출 한도 초과. 잠시 후 재시도합니다.");
+            // 적절한 대기 시간 후 재시도 로직 구현 가능
+            throw new PromptException("API 호출 한도 초과", e);
         } catch (Exception e) {
             log.error("OpenAI API 호출 중 오류 발생", e);
             throw new PromptException("OpenAI API 호출 실패: " + e.getMessage(), e);
         }
+    }
+
+    private Map<String, Object> createChatRequestBody(String systemPrompt, String userPrompt) {
+        Map<String, Object> systemMessage = Map.of("role", "system", "content", systemPrompt);
+        Map<String, Object> userMessage = Map.of("role", "user", "content", userPrompt);
+
+        return Map.of(
+                "model", model,
+                "messages", List.of(systemMessage, userMessage),
+                "temperature", 0.7,
+                "max_tokens", 2048
+        );
+    }
+
+    private String extractContentFromResponse(JsonNode responseBody) {
+        return responseBody
+                .path("choices")
+                .get(0)
+                .path("message")
+                .path("content")
+                .asText();
+    }
+
+    public CompletableFuture<double[]> embeddingsAsync(String text) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!rateLimiter.tryAcquire()) {
+                throw new RateLimitException("API 호출 한도 초과");
+            }
+            return embeddings(text);
+        });
     }
 
     public double[] embeddings(String text) {
@@ -128,126 +151,27 @@ public class OpenAiApi {
         return headers;
     }
 
-    public String improvedPromptForImageGeneration(String originalPrompt) {
+    // 통합된 프롬프트 분석 메서드
+    public String analyzePrompt(String prompt) {
         String systemPrompt = """
-                당신은 전문적인 사진작가이자 이미지 생성 전문가입니다.
-                주어진 프롬프트를 다음 요소들을 고려하여 더 상세하고 전문적인 이미지 생성 프롬프트로 개선해주세요:
-                
-                1. 구도와 프레이밍
-                   - 피사체의 위치와 크기
-                   - 화면 구성과 앵글
-                
-                2. 기술적 특성
-                   - 파일 형식과 처리 방식
-                   - 이미지 품질과 해상도
-                
-                3. 촬영 맥락
-                   - 촬영 환경과 스타일
-                   - 장르적 특성
-                
-                4. 시대적/용도 맥락
-                   - 시대적 참조
-                   - 의도된 사용 목적
-                
-                5. 조명 설정
-                   - 빛의 특성과 방향
-                   - 그림자와 하이라이트
-                
-                6. 카메라 설정
-                   - 렌즈 선택과 효과
-                   - 심도와 초점
-                
-                개선된 프롬프트는 자연스러운 문장으로 작성하되, 
-                각 요소가 명확하게 전달되도록 해주세요.
-                """;
+            다음 프롬프트에 대해 한 번의 분석으로 다음 정보를 모두 제공해주세요:
+            
+            1. 핵심 키워드 (최대 10개, 쉼표로 구분)
+            2. 개선된 프롬프트
+            3. 카테고리별 추천 키워드
+            
+            응답 형식:
+            ---KEYWORDS---
+            키워드1, 키워드2, ...
+            ---IMPROVED---
+            개선된 프롬프트
+            ---CATEGORIES---
+            Framing: keyword1, keyword2
+            File Type: keyword1, keyword2
+            Shoot Context: keyword1, keyword2
+            ...
+            """;
 
-        return chat(systemPrompt, originalPrompt);
-    }
-
-    public List<Map<String, List<String>>> suggestPromptKeywords(String prompt) {
-        String systemPrompt = """
-                당신은 전문적인 사진 및 이미지 생성 전문가입니다. 
-                주어진 프롬프트를 분석하여 다음 카테고리별로 적절한 키워드를 추천해주세요.
-                
-                각 카테고리별 고려사항:
-                
-                1. Framing (구도):
-                   - 예: extreme close-up, medium shot, wide shot, dutch angle
-                   - 피사체의 위치와 크기
-                   - 화면 구성 방식
-                
-                2. File Type (파일 형식):
-                   - 예: RAW, JPEG, analog film, 35mm, medium format
-                   - 이미지의 기술적 특성
-                   - 필름이나 센서 특성
-                
-                3. Shoot Context (촬영 맥락):
-                   - 예: street photography, studio shot, documentary, editorial
-                   - 촬영 환경과 목적
-                   - 장르적 특성
-                
-                4. Year & Usage Context (시대 및 용도 맥락):
-                   - 예: vintage 1960s, modern 2024, retro aesthetic
-                   - 시대적 특성
-                   - 사용 목적과 스타일
-                
-                5. Lighting Prompt (조명):
-                   - 예: golden hour, harsh shadows, soft diffused light
-                   - 자연광/인공광 특성
-                   - 조명 기법과 효과
-                
-                6. Lens & Camera Prompt (렌즈 및 카메라):
-                   - 예: wide-angle lens, telephoto compression, shallow depth of field
-                   - 카메라 장비 특성
-                   - 광학적 효과
-                
-                각 카테고리별로 2-3개의 가장 적절한 키워드를 추천해주세요.
-                응답은 각 카테고리별로 구분하여 명확하게 제시해주세요.
-                키워드는 영어로 작성해주세요.
-                """;
-
-        String response = chat(systemPrompt, prompt);
-        return parseKeywordResponse(response);
-    }
-
-    private List<Map<String, List<String>>> parseKeywordResponse(String response) {
-        try {
-            List<Map<String, List<String>>> categorizedKeywords = new ArrayList<>();
-            String[] categories = {
-                    "Framing", "File Type", "Shoot Context",
-                    "Year & Usage Context", "Lighting Prompt", "Lens & Camera Prompt"
-            };
-
-            // OpenAI의 응답을 파싱하여 카테고리별로 정리
-            for (String category : categories) {
-                Map<String, List<String>> categoryMap = new HashMap<>();
-                List<String> keywords = extractKeywordsForCategory(response, category);
-                categoryMap.put(category, keywords);
-                categorizedKeywords.add(categoryMap);
-            }
-
-            return categorizedKeywords;
-        } catch (Exception e) {
-            log.error("키워드 파싱 중 오류 발생", e);
-            throw new PromptException("키워드 파싱 실패: " + e.getMessage(), e);
-        }
-    }
-
-    private List<String> extractKeywordsForCategory(String response, String category) {
-        // 정규식을 사용하여 각 카테고리의 키워드 추출
-        String pattern = category + ".*?:(.+?)(?=\\n|$)";
-        java.util.regex.Pattern r = java.util.regex.Pattern.compile(pattern,
-                java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.DOTALL);
-        java.util.regex.Matcher m = r.matcher(response);
-
-        if (m.find()) {
-            String keywordStr = m.group(1).trim();
-            return Arrays.stream(keywordStr.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toList());
-        }
-        return new ArrayList<>();
+        return chat(systemPrompt, prompt);
     }
 }
-

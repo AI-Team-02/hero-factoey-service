@@ -19,9 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -32,9 +32,6 @@ public class PromptService {
     private final OpenAiApi openAiApi;
     private final PlatformTransactionManager transactionManager;
 
-    /**
-     * 새로운 프롬프트를 생성하고 처리 큐에 전송합니다.
-     */
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public PromptResponse createPrompt(PromptRequest request) {
         String promptId = UUID.randomUUID().toString();
@@ -44,7 +41,6 @@ public class PromptService {
         TransactionStatus status = transactionManager.getTransaction(def);
 
         try {
-            // 프롬프트 엔티티 생성
             Prompt prompt = Prompt.builder()
                     .promptId(promptId)
                     .memberId(request.getMemberId())
@@ -55,7 +51,6 @@ public class PromptService {
 
             promptRepository.save(prompt);
 
-            // 메시지 큐로 전송
             PromptMessage message = createPromptMessage(prompt);
             promptProducer.sendPromptMessage(message);
 
@@ -69,9 +64,6 @@ public class PromptService {
         }
     }
 
-    /**
-     * 큐에서 받은 프롬프트 메시지를 처리합니다.
-     */
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void processPrompt(PromptMessage message) {
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
@@ -79,33 +71,43 @@ public class PromptService {
         TransactionStatus status = transactionManager.getTransaction(def);
 
         try {
-            // 프롬프트 조회 및 상태 검증
             Prompt prompt = promptRepository.findByPromptIdWithLock(message.getPromptId())
-                    .orElseThrow(() -> new PromptException("프롬프트 정보를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new PromptException("프롬프트를 찾을 수 없습니다."));
 
             if (!prompt.getStatus().canProcess()) {
-                throw new PromptException("처리할 수 없는 상태의 프롬프트입니다.");
+                return;
             }
 
             prompt.setStatus(PromptStatus.PROCESSING);
             promptRepository.save(prompt);
 
-            // 1. 기본 키워드 추출
-            List<String> baseKeywords = extractKeywords(prompt.getOriginalPrompt());
+            // 병렬로 API 호출 실행
+            CompletableFuture<String> analysisFuture = openAiApi.chatAsync(
+                    "프롬프트 분석을 시작합니다.",
+                    prompt.getOriginalPrompt()
+            );
 
-            // 2. 프롬프트 개선
-            String enhancedPrompt = enhancePrompt(prompt.getOriginalPrompt(), baseKeywords);
+            CompletableFuture<double[]> embeddingFuture = openAiApi.embeddingsAsync(
+                    prompt.getOriginalPrompt()
+            );
 
-            // 3. 카테고리별 키워드 분석
-            List<Map<String, List<String>>> categoryKeywords = openAiApi.suggestPromptKeywords(prompt.getOriginalPrompt());
+            // 모든 비동기 작업 완료 대기
+            CompletableFuture<Void> allOf = CompletableFuture.allOf(
+                    analysisFuture, embeddingFuture
+            );
 
-            // 4. 임베딩 생성 및 유사 프롬프트 검색
-            double[] embedding = openAiApi.embeddings(enhancedPrompt);
-            List<String> additionalKeywords = findAdditionalKeywords(embedding);
+            // 30초 타임아웃 설정
+            try {
+                allOf.get(30, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new PromptException("API 처리 시간 초과", e);
+            }
 
-            // 결과 저장
-            updatePromptWithResults(prompt, enhancedPrompt, categoryKeywords, embedding, additionalKeywords);
+            // 결과 처리
+            ProcessedPromptData processedData = parseProcessedData(analysisFuture.get());
+            updatePromptWithResults(prompt, processedData, embeddingFuture.get());
 
+            prompt.setStatus(PromptStatus.COMPLETED);
             promptRepository.save(prompt);
             transactionManager.commit(status);
 
@@ -116,39 +118,50 @@ public class PromptService {
         }
     }
 
-    /**
-     * 프롬프트의 현재 상태를 조회합니다.
-     */
     @Transactional(readOnly = true)
     public PromptResponse getPromptStatus(String promptId) {
         Prompt prompt = promptRepository.findByPromptId(promptId)
                 .orElseThrow(() -> new PromptException("프롬프트 정보를 찾을 수 없습니다."));
-
         return createPromptResponse(prompt);
     }
 
-    /**
-     * 유사한 프롬프트들의 키워드를 검색합니다.
-     */
-    @Transactional(readOnly = true)
-    public List<String> findSimilarKeywords(String promptId) {
-        Prompt prompt = promptRepository.findByPromptId(promptId)
-                .orElseThrow(() -> new PromptException("프롬프트 정보를 찾을 수 없습니다."));
+    private record ProcessedPromptData(
+            List<String> keywords,
+            String improvedPrompt,
+            Map<String, List<String>> categoryKeywords
+    ) {}
 
-        return findAdditionalKeywords(prompt.getEmbeddingVector());
+    private ProcessedPromptData parseProcessedData(String response) {
+        String[] sections = response.split("---\\w+---");
+
+        List<String> keywords = Arrays.asList(sections[1].trim().split("\\s*,\\s*"));
+        String improvedPrompt = sections[2].trim();
+        Map<String, List<String>> categoryKeywords = parseCategoryKeywords(sections[3]);
+
+        return new ProcessedPromptData(keywords, improvedPrompt, categoryKeywords);
     }
 
-    // Private helper methods
+    private Map<String, List<String>> parseCategoryKeywords(String categorySection) {
+        Map<String, List<String>> result = new HashMap<>();
+        String[] lines = categorySection.trim().split("\n");
 
-    private void updatePromptWithResults(Prompt prompt, String improvedPrompt,
-                                         List<Map<String, List<String>>> categoryKeywords,
-                                         double[] embedding,
-                                         List<String> keywords) {
-        prompt.setImprovedPrompt(improvedPrompt);
-        prompt.setCategoryKeywords(categoryKeywords);
+        for (String line : lines) {
+            String[] parts = line.split(":");
+            if (parts.length == 2) {
+                String category = parts[0].trim();
+                List<String> keywords = Arrays.asList(parts[1].trim().split("\\s*,\\s*"));
+                result.put(category, keywords);
+            }
+        }
+
+        return result;
+    }
+
+    private void updatePromptWithResults(Prompt prompt, ProcessedPromptData data, double[] embedding) {
+        prompt.setImprovedPrompt(data.improvedPrompt());
+        prompt.setKeywords(data.keywords());
+        prompt.setKeywords(data.keywords());
         prompt.setEmbeddingVector(embedding);
-        prompt.setKeywords(keywords);
-        prompt.setStatus(PromptStatus.COMPLETED);
         prompt.setCompletedAt(LocalDateTime.now());
         prompt.setUpdatedAt(LocalDateTime.now());
     }
@@ -174,37 +187,6 @@ public class PromptService {
                 .createdAt(prompt.getCreatedAt())
                 .completedAt(prompt.getCompletedAt())
                 .build();
-    }
-
-    private List<String> extractKeywords(String originalPrompt) {
-        String systemPrompt = """
-            입력된 프롬프트에서 이미지 생성에 중요한 키워드를 추출하세요.
-            스타일, 구도, 색감, 주요 객체 등을 고려하여 최대 10개의 키워드를 추출하세요.
-            각 키워드는 쉼표로 구분하여 반환하세요.
-            """;
-
-        String response = openAiApi.chat(systemPrompt, originalPrompt);
-        return List.of(response.split(","));
-    }
-
-    private String enhancePrompt(String originalPrompt, List<String> keywords) {
-        String systemPrompt = """
-            주어진 프롬프트를 이미지 생성에 최적화된 형태로 개선하세요.
-            추출된 키워드를 활용하여 더 상세하고 명확한 프롬프트를 생성하세요.
-            이미지의 스타일, 구도, 색감, 주요 객체 등이 명확하게 드러나도록 작성하세요.
-            """;
-
-        String promptWithKeywords = originalPrompt + "\n추출된 키워드: " + String.join(", ", keywords);
-        return openAiApi.chat(systemPrompt, promptWithKeywords);
-    }
-
-    private List<String> findAdditionalKeywords(double[] embedding) {
-        List<Prompt> similarPrompts = promptRepository.findSimilarPrompts(embedding, 5);
-        return similarPrompts.stream()
-                .flatMap(p -> p.getKeywords().stream())
-                .distinct()
-                .limit(5)
-                .toList();
     }
 
     private void handlePromptProcessingError(String promptId, Exception e) {

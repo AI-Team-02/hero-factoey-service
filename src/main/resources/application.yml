@@ -9,14 +9,6 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        type:
-          preferred_array_mapping: json
-      types.print.banner: false
-    hypersistence:
-       utils:
-         jackson:
-           object:
-             mapper: true
     show-sql: true
 
   rabbitmq:
@@ -26,7 +18,7 @@ spring:
       simple:
         retry:
           enabled: true
-          initial-interval: 1000
+          initial-interval: 2000
           max-attempts: 3
           max-interval: 10000
           multiplier: 2.0
@@ -35,11 +27,6 @@ spring:
     template:
       mandatory: true
 
-# 벡터 검색 관련 설정
-vector:
-  search:
-    similarity-threshold: 0.8
-    max-results: 5
 
 logging:
   level:
@@ -47,5 +34,3 @@ logging:
     org.springframework.web: INFO
     org.hibernate: INFO
     org.springframework.ai: DEBUG
-    # vector 검색 관련 로깅 추가
-    org.postgresql: DEBUG
