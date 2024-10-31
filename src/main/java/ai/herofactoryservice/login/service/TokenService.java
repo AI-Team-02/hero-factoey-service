@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import java.util.concurrent.TimeUnit;
 
@@ -38,13 +36,6 @@ public class TokenService {
             // 같지 않으면, 해킹 감지로 토큰 데이터 삭제
             invalidateAllUserTokens(userId);
             throw new BadCredentialsException("Invalid refresh token");
-        }
-
-        // Refresh Token 만료 여부 확인
-        // TODO : 만료시간 체크하는지 확인
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
-            redisTemplate.delete(refreshTokenKey);
-            throw new BadCredentialsException("Refresh token has expired");
         }
 
         // 새로운 토큰 발급
