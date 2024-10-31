@@ -6,6 +6,7 @@ import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +21,9 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    private final long validityInMilliseconds = 3600000; // 1시간
+    private final long accessTokenValidityInMilliseconds = 60 * 60 * 1000; // 1시간
+
+    private final long refreshTokenValidityInMilliseconds = 60 * 60 * 24 * 14 * 1000; // 2주
     private SecretKey key;
 
     @PostConstruct
@@ -29,9 +32,9 @@ public class JwtTokenProvider {
         log.info("JWT key has been initialized");
     }
 
-    public String createToken(Long userId) {
+    public String createAccessToken(Long userId) {
         Date now = new Date();
-        Date validity = new Date(now.getTime() + validityInMilliseconds);
+        Date validity = new Date(now.getTime() + accessTokenValidityInMilliseconds);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))
@@ -40,6 +43,20 @@ public class JwtTokenProvider {
                 .signWith(key)
                 .compact();
     }
+
+    public String createRefreshToken() {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + (refreshTokenValidityInMilliseconds));
+        String refreshTokenId = UUID.randomUUID().toString();
+
+        return Jwts.builder()
+                .subject(refreshTokenId)
+                .issuedAt(now)
+                .expiration(validity)
+                .signWith(key)
+                .compact();
+    }
+
 
     public Long getUserId(String token) {
         return Long.parseLong(
@@ -50,6 +67,14 @@ public class JwtTokenProvider {
                         .getPayload()
                         .getSubject()
         );
+    }
+    public String getUUID(String token) {
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
     }
 
 
@@ -64,5 +89,15 @@ public class JwtTokenProvider {
             log.error("Invalid JWT token", e);
             return false;
         }
+    }
+
+    public long getExpirationTime(String token) {
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getExpiration()
+                .getTime();
     }
 }
