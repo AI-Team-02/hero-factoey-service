@@ -58,6 +58,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.getWriter().write("Authentication failed");
         }
     }
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return path.startsWith("/api/kakao/") ||
+                path.startsWith("/test") ||
+                path.startsWith("/images/") ||
+                path.startsWith("/swagger-ui/") ||
+                path.startsWith("/v3/api-docs/");
+    }
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
