@@ -1,5 +1,6 @@
 package ai.herofactoryservice.config.security;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -22,7 +23,6 @@ public class JwtTokenProvider {
     private String secretKey;
 
     private final long accessTokenValidityInMilliseconds = 60 * 60 * 1000; // 1시간
-
     private final long refreshTokenValidityInMilliseconds = 60 * 60 * 24 * 14 * 1000; // 2주
     private SecretKey key;
 
@@ -59,22 +59,19 @@ public class JwtTokenProvider {
 
 
     public Long getUserId(String token) {
-        return Long.parseLong(
-                Jwts.parser()
-                        .verifyWith(key)
-                        .build()
-                        .parseSignedClaims(token)
-                        .getPayload()
-                        .getSubject()
-        );
-    }
-    public String getUUID(String token) {
-        return Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
+        try {
+            return Long.parseLong(
+                    Jwts.parser()
+                            .verifyWith(key)
+                            .build()
+                            .parseSignedClaims(token)
+                            .getPayload()
+                            .getSubject()
+            );
+        } catch (ExpiredJwtException e) {
+            // 만료된 토큰이어도 Claims 정보는 가져올 수 있음
+            return Long.parseLong(e.getClaims().getSubject());
+        }
     }
 
 
@@ -91,13 +88,4 @@ public class JwtTokenProvider {
         }
     }
 
-    public long getExpirationTime(String token) {
-        return Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getExpiration()
-                .getTime();
-    }
 }
