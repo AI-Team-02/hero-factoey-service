@@ -66,6 +66,11 @@ public class TokenService {
         return storedToken != null ;
     }
 
+    /**
+     * Filter에서 accessToken 유효성 검사한 후, 유효할 경우 로그아웃 진행
+     * 유효하지 않은 accessToken으로 악의적인 로그아웃 요청을 막아야 함
+     * @param accessToken
+     */
     public void logout(String accessToken) {
         Long userId = jwtTokenProvider.getUserId(accessToken);
         redisTemplate.delete(REFRESH_TOKEN_PREFIX + userId);
