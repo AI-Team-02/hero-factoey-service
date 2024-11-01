@@ -1,0 +1,45 @@
+server:
+  port: 8081
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+      # pgvector 지원을 위한 설정 추가
+      hibernate.types.print.banner: false
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2.0
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
+# 벡터 검색 관련 설정
+vector:
+  search:
+    similarity-threshold: 0.8
+    max-results: 5
+
+logging:
+  level:
+    ai.herofactoryservice: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: INFO
+    org.springframework.ai: DEBUG
+    # vector 검색 관련 로깅 추가
+    org.postgresql: DEBUG

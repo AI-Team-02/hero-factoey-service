@@ -1,3 +1,4 @@
+
 //package ai.herofactoryservice.create_game_resource_service.config;
 //
 //import org.springframework.context.annotation.Bean;
@@ -12,3 +13,4 @@
 //        return new RestTemplate();
 //    }
 //}
+
