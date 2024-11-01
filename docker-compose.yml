@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: hero-factory-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=hero_factory_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=himedia1!
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgresql/init:/docker-entrypoint-initdb.d
+    networks:
+      - hero-factory-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: hero-factory-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - hero-factory-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  spring-app:
+    build: .
+    container_name: hero-factory-app
+    ports:
+      - "8081:8081"
+    volumes:
+      - C:/logs:/logs
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hero-factory-network
+    restart: unless-stopped
+
+networks:
+  hero-factory-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -1,8 +1,6 @@
 package ai.herofactoryservice.create_game_resource_service.messaging;
 
 import ai.herofactoryservice.create_game_resource_service.config.RabbitMQConfig;
-import ai.herofactoryservice.create_game_resource_service.exception.PromptException;
-import ai.herofactoryservice.create_game_resource_service.exception.RateLimitException;
 import ai.herofactoryservice.create_game_resource_service.model.MessageLog;
 import ai.herofactoryservice.create_game_resource_service.model.PromptMessage;
 import ai.herofactoryservice.create_game_resource_service.repository.MessageLogRepository;
@@ -15,19 +13,13 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.retry.support.RetryTemplate;
-import org.springframework.retry.policy.SimpleRetryPolicy;
-import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -37,23 +29,6 @@ public class PromptConsumer {
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
     private final MessageLogRepository messageLogRepository;
-    private RetryTemplate retryTemplate;
-
-    @PostConstruct
-    public void init() {
-        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy(3,
-                Map.of(RateLimitException.class, true));
-
-        ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
-        backOffPolicy.setInitialInterval(2000); // 2초
-        backOffPolicy.setMultiplier(2.0);
-        backOffPolicy.setMaxInterval(10000); // 10초
-
-        retryTemplate = RetryTemplate.builder()
-                .customPolicy(retryPolicy)
-                .customBackoff(backOffPolicy)
-                .build();
-    }
 
     @RabbitListener(queues = RabbitMQConfig.PROMPT_QUEUE)
     public void processPrompt(Message message, Channel channel,
@@ -65,15 +40,16 @@ public class PromptConsumer {
 
         try {
             if (isMessageProcessed(messageId)) {
-                log.info("Message already processed: {}", messageId);
                 channel.basicAck(tag, false);
                 return;
             }
 
-            retryTemplate.execute(context -> {
-                processPromptWithRetry(message, messageId);
-                return null;
-            });
+            String messageJson = new String(message.getBody());
+            PromptMessage promptMessage = objectMapper.readValue(messageJson, PromptMessage.class);
+
+            saveMessageLog(promptMessage, messageId, "PROCESSING", null);
+            promptService.processPrompt(promptMessage);
+            saveMessageLog(promptMessage, messageId, "PROCESSED", null);
 
             channel.basicAck(tag, false);
             transactionManager.commit(status);
@@ -84,37 +60,6 @@ public class PromptConsumer {
         }
     }
 
-    private void processPromptWithRetry(Message message, String messageId) throws Exception {
-        String messageJson = new String(message.getBody());
-        PromptMessage promptMessage = objectMapper.readValue(messageJson, PromptMessage.class);
-
-        saveMessageLog(promptMessage, messageId, "PROCESSING", null);
-        validateMessage(promptMessage);
-
-        promptService.processPrompt(promptMessage);
-
-        saveMessageLog(promptMessage, messageId, "PROCESSED", null);
-    }
-
-    private void validateMessage(PromptMessage promptMessage) {
-        if (promptMessage.getSketchData() != null) {
-            validateSketchData(promptMessage.getSketchData());
-        }
-    }
-
-    private void validateSketchData(String sketchData) {
-        if (!isValidBase64(sketchData)) {
-            throw new PromptException("Invalid sketch data format");
-        }
-        if (sketchData.length() > 5_000_000) {
-            throw new PromptException("Sketch data size exceeds limit (5MB)");
-        }
-    }
-
-    private boolean isValidBase64(String base64Data) {
-        return base64Data.matches("^[A-Za-z0-9+/]*={0,2}$");
-    }
-
     private boolean isMessageProcessed(String messageId) {
         return messageLogRepository.existsByMessageIdAndStatus(messageId, "PROCESSED");
     }
@@ -122,24 +67,25 @@ public class PromptConsumer {
     private void handleProcessingFailure(Message message, Channel channel,
                                          long tag, String messageId, Exception e) {
         try {
-            Integer retryCount = getRetryCount(message);
             saveMessageLog(extractPromptMessage(message), messageId, "FAILED", e.getMessage());
 
-            if (retryCount >= 3) {
-                log.warn("Message sent to DLQ after {} retries: {}", retryCount, messageId);
-                channel.basicNack(tag, false, false);
+            int failedCount = messageLogRepository.countFailedAttempts(messageId);
+
+            if (failedCount >= 3) {
+                log.warn("Message sent to DLQ after {} failures: {}", failedCount, messageId);
+                channel.basicReject(tag, false);
             } else {
-                log.warn("Message requeued for retry. Attempt {}: {}", retryCount + 1, messageId);
+                log.warn("Message requeued for retry. Failure count {}: {}", failedCount + 1, messageId);
                 channel.basicNack(tag, false, true);
             }
         } catch (Exception ex) {
             log.error("Error handling message processing failure", ex);
+            try {
+                channel.basicReject(tag, false);
+            } catch (Exception ioException) {
+                log.error("Failed to reject message", ioException);
+            }
         }
-    }
-
-    private Integer getRetryCount(Message message) {
-        return message.getMessageProperties().getXDeathHeader() != null ?
-                message.getMessageProperties().getXDeathHeader().size() : 0;
     }
 
     private PromptMessage extractPromptMessage(Message message) {

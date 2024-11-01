@@ -23,6 +23,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -34,8 +35,7 @@ public class PaymentConsumer {
     private final PaymentLogRepository paymentLogRepository;
     private final MessageLogRepository messageLogRepository;
 
-    @RabbitListener(queues = RabbitMQConfig.PAYMENT_QUEUE,
-            containerFactory = "rabbitListenerContainerFactory")
+    @RabbitListener(queues = RabbitMQConfig.PAYMENT_QUEUE)
     public void processPayment(Message message, Channel channel,
                                @Header(AmqpHeaders.DELIVERY_TAG) long tag) {
         String messageId = message.getMessageProperties().getMessageId();
@@ -78,25 +78,29 @@ public class PaymentConsumer {
     private void handleProcessingFailure(Message message, Channel channel,
                                          long tag, String messageId, Exception e) {
         try {
-            Integer retryCount = message.getMessageProperties().getXDeathHeader() != null ?
-                    message.getMessageProperties().getXDeathHeader().size() : 0;
+            Map<String, Object> headers = message.getMessageProperties().getHeaders();
+            Integer retryCount = (Integer) headers.getOrDefault("retry-count", 0);
 
             String errorMessage = "Payment processing failed: " + e.getMessage();
             saveMessageLog(extractPaymentMessage(message), messageId, "FAILED", errorMessage);
 
             if (retryCount >= 3) {
-                // 최대 재시도 횟수 초과 - DLQ로 전송
                 channel.basicNack(tag, false, false);
                 log.warn("Message sent to DLQ after {} retries. MessageId: {}",
                         retryCount, messageId);
             } else {
-                // 재시도를 위해 다시 큐로
+                headers.put("retry-count", retryCount + 1);
                 channel.basicNack(tag, false, true);
                 log.warn("Message requeued for retry. Attempt: {}. MessageId: {}",
                         retryCount + 1, messageId);
             }
         } catch (Exception ex) {
             log.error("Error handling message processing failure", ex);
+            try {
+                channel.basicReject(tag, false);
+            } catch (IOException ioException) {
+                log.error("Failed to reject message", ioException);
+            }
         }
     }
 

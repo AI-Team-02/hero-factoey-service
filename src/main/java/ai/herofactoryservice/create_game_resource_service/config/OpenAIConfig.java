@@ -17,43 +17,30 @@ import java.util.List;
 public class OpenAIConfig {
 
     @Value("${openai.api.key}")
-    private String openaiApiKey;
+    private String apiKey;
 
-    @Value("${openai.api.models.chat:gpt-4}")
-    private String model;
-
-    @Value("${openai.api.base-url:https://api.openai.com/v1}")
+    @Value("${openai.api.base-url}")
     private String baseUrl;
 
-    @Value("${openai.api.request.timeout:60000}")
-    private int timeout;
+    @Value("${openai.api.models.chat}")
+    private String chatModel;
 
-    @Value("${openai.api.rate-limit.requests-per-minute:20}")
+    @Value("${openai.api.models.embedding}")
+    private String embeddingModel;
+
+    @Value("${openai.api.rate-limit.requests-per-minute}")
     private double requestsPerMinute;
 
-    @Bean
-    public RestTemplate openaiRestTemplate(RestTemplateBuilder builder) {
-        RestTemplate restTemplate = builder
-                .setConnectTimeout(Duration.ofMillis(timeout))
-                .setReadTimeout(Duration.ofMillis(timeout))
-                .defaultHeader("Authorization", "Bearer " + openaiApiKey)
-                .defaultHeader("Content-Type", "application/json")
-                .build();
-
-        List<ClientHttpRequestInterceptor> interceptors = new ArrayList<>();
-        interceptors.add(new RateLimitingInterceptor(requestsPerMinute));
-        restTemplate.setInterceptors(interceptors);
-
-        return restTemplate;
-    }
 
     @Bean
     public OpenAiApi openAiApi(RestTemplate openaiRestTemplate) {
         return OpenAiApi.builder()
-                .apiKey(openaiApiKey)
+                .apiKey(apiKey)
                 .baseUrl(baseUrl)
-                .model(model)
+                .model(chatModel)
+                .embeddingModel(embeddingModel)
                 .restTemplate(openaiRestTemplate)
+                .requestsPerMinute(requestsPerMinute)
                 .build();
     }
 }
