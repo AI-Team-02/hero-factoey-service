@@ -1,6 +1,8 @@
 package ai.herofactoryservice.config.security;
 
 import ai.herofactoryservice.login.service.TokenService;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,35 +31,55 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String accessToken = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(accessToken) && jwtTokenProvider.validateToken(accessToken)) {
-                if (tokenService.isLogin(accessToken)) {
-                    Long userId = jwtTokenProvider.getUserId(accessToken);
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                } else {
-                    // 토큰은 유효하지만 로그아웃된 상태
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                    response.setHeader("X-Auth-Error", "logged-out");
-                    response.getWriter().write("User is logged out");
-                    return;
+            if (!StringUtils.hasText(accessToken)) {
+                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Token is missing", "token-missing");
+                return;
+            }
+            try {
+                // 토큰 검증
+                if (jwtTokenProvider.validateToken(accessToken)) {
+                    if (tokenService.isLogin(accessToken)) {
+                        Long userId = jwtTokenProvider.getUserId(accessToken);
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    } else {
+                        sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "User is logged out", "logged-out");
+                        return;
+                    }
                 }
-            } else {
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                response.setHeader("X-Auth-Error", "token-expired");
-                response.getWriter().write("Access token expired");
+            } catch (ExpiredJwtException e) {
+                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Access token has expired", "token-expired");
+                return;
+            } catch (JwtException e) {
+                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Invalid access token", "invalid-token");
                 return;
             }
 
             filterChain.doFilter(request, response);
         } catch (Exception e) {
             log.error("JWT Authentication error", e);
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setHeader("X-Auth-Error", "auth-failed");
-            response.getWriter().write("Authentication failed");
+            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "Authentication failed", "auth-failed");
         }
     }
+
+    private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message, String error)
+            throws IOException {
+        response.setStatus(status.value());
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("X-Auth-Error", error);
+
+        String jsonResponse = String.format(
+                "{\"status\": %d, \"message\": \"%s\", \"error\": \"%s\"}",
+                status.value(),
+                message,
+                error
+        );
+        response.getWriter().write(jsonResponse);
+    }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();

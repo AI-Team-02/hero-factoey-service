@@ -82,9 +82,8 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            log.error("Invalid JWT token", e);
-            return false;
+        } catch (JwtException e) {
+            throw e;  // 필터로 던져서 구분해서 처리
         }
     }
 
