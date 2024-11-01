@@ -18,15 +18,43 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # pgvector 지원을 위한 설정 추가
+        types:
+          print:
+            banner: false
   data:
     redis:
       host: localhost
       port: 6379
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2.0
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
 jwt:
   secret: ${JWT_SECRET_KEY}
+
+# 벡터 검색 관련 설정
+vector:
+  search:
+    similarity-threshold: 0.8
+    max-results: 5
 
 logging:
   level:
     ai:
       herofactoryservice: DEBUG
+    # vector 검색 관련 로깅 추가
+#    org.postgresql: DEBUG
