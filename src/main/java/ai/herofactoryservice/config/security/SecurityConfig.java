@@ -27,7 +27,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/kakao/**", "/test", "/images/**", "/swagger-ui/**", "/v3/api-docs/**")
+                        .requestMatchers("/api/kakao/**","/auth/reissue",  "/test", "/images/**", "/swagger-ui/**", "/v3/api-docs/**")
                         .permitAll()
                         .anyRequest().authenticated()
                 )
