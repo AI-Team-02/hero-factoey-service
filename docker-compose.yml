@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: ankane/pgvector:latest
@@ -46,7 +44,7 @@ services:
     ports:
       - "8081:8081"
     volumes:
-      - C:/logs:/logs
+      - /logs:/logs  # Windows 경로를 Unix 스타일로 변경
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
