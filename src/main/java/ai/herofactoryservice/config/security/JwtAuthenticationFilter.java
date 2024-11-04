@@ -86,9 +86,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.startsWith("/api/kakao/") ||
                 path.startsWith("/test") ||
                 path.startsWith("/images/") ||
-                path.startsWith("/swagger-ui/") ||
+                path.startsWith("/swagger-ui") ||
                 path.startsWith("/auth/reissue") ||
-                path.startsWith("/v3/api-docs/");
+                path.startsWith("/v3/api-docs");
+
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
