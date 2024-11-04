@@ -3,6 +3,7 @@ package ai.herofactoryservice.gameobject.controller;
 
 import ai.herofactoryservice.gameobject.service.GameObjectService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,10 +23,10 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api")
 @Slf4j
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 public class GameObjectController {
     
     private final GameObjectService gameObjectService;
-
 
     @Operation(
             summary = "게임 오브젝트 이미지 생성",
