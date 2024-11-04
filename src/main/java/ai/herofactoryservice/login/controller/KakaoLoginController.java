@@ -3,6 +3,7 @@ package ai.herofactoryservice.login.controller;
 import ai.herofactoryservice.login.dto.LoginResponseDto;
 import ai.herofactoryservice.login.service.KakaoLoginService;
 import ai.herofactoryservice.login.service.TokenService;
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,7 @@ public class KakaoLoginController {
         return "redirect:" + kakaoAuthUrl;
     }
 
+    @Hidden
     @GetMapping("/callback")
     @ResponseBody
     public LoginResponseDto kakaoCallback(@RequestParam String code) {
