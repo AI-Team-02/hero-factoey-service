@@ -22,9 +22,4 @@ public class VectorService {
     public List<Prompt> findSimilarPrompts(double[] vector, double threshold, int limit) {
         return vectorRepository.findSimilarPrompts(vector, threshold, limit);
     }
-
-    @Transactional
-    public void initializeVectorSupport() {
-        vectorRepository.createVectorExtensionAndIndex();
-    }
 }

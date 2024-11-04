@@ -39,53 +39,62 @@ public class PromptConsumer {
         TransactionStatus status = transactionManager.getTransaction(def);
 
         try {
+            // 이미 처리된 메시지 체크
             if (isMessageProcessed(messageId)) {
                 channel.basicAck(tag, false);
                 return;
             }
 
-            String messageJson = new String(message.getBody());
-            PromptMessage promptMessage = objectMapper.readValue(messageJson, PromptMessage.class);
+            PromptMessage promptMessage = extractPromptMessage(message);
+            if (promptMessage == null) {
+                // 메시지 파싱 실패시 DLQ로 전송
+                rejectMessage(channel, tag, messageId, "Failed to parse message");
+                return;
+            }
 
+            // 메시지 처리 시작 로그
             saveMessageLog(promptMessage, messageId, "PROCESSING", null);
-            promptService.processPrompt(promptMessage);
-            saveMessageLog(promptMessage, messageId, "PROCESSED", null);
 
+            // 프롬프트 처리
+            promptService.processPrompt(promptMessage);
+
+            // 성공 처리
+            saveMessageLog(promptMessage, messageId, "PROCESSED", null);
             channel.basicAck(tag, false);
             transactionManager.commit(status);
 
         } catch (Exception e) {
+            log.error("Error processing prompt message: {}", messageId, e);
             transactionManager.rollback(status);
-            handleProcessingFailure(message, channel, tag, messageId, e);
+
+            try {
+                handleProcessingFailure(message, channel, tag, messageId, e);
+            } catch (Exception ex) {
+                log.error("Failed to handle message failure", ex);
+                saveMessageLog(extractPromptMessage(message), messageId, "FAILED",
+                        "Failed to handle message: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void handleProcessingFailure(Message message, Channel channel,
+                                         long tag, String messageId, Exception e) throws Exception {
+        PromptMessage promptMessage = extractPromptMessage(message);
+        saveMessageLog(promptMessage, messageId, "FAILED", e.getMessage());
+
+        int failedCount = messageLogRepository.countFailedAttempts(messageId);
+
+        if (failedCount >= 3) {
+            log.warn("Message {} failed {} times, sending to DLQ", messageId, failedCount);
+            channel.basicReject(tag, false);
+        } else {
+            log.warn("Message {} failed, attempt {}/3, requeueing", messageId, failedCount);
+            channel.basicNack(tag, false, true);
         }
     }
 
     private boolean isMessageProcessed(String messageId) {
         return messageLogRepository.existsByMessageIdAndStatus(messageId, "PROCESSED");
-    }
-
-    private void handleProcessingFailure(Message message, Channel channel,
-                                         long tag, String messageId, Exception e) {
-        try {
-            saveMessageLog(extractPromptMessage(message), messageId, "FAILED", e.getMessage());
-
-            int failedCount = messageLogRepository.countFailedAttempts(messageId);
-
-            if (failedCount >= 3) {
-                log.warn("Message sent to DLQ after {} failures: {}", failedCount, messageId);
-                channel.basicReject(tag, false);
-            } else {
-                log.warn("Message requeued for retry. Failure count {}: {}", failedCount + 1, messageId);
-                channel.basicNack(tag, false, true);
-            }
-        } catch (Exception ex) {
-            log.error("Error handling message processing failure", ex);
-            try {
-                channel.basicReject(tag, false);
-            } catch (Exception ioException) {
-                log.error("Failed to reject message", ioException);
-            }
-        }
     }
 
     private PromptMessage extractPromptMessage(Message message) {
@@ -97,8 +106,7 @@ public class PromptConsumer {
         }
     }
 
-    private void saveMessageLog(PromptMessage message, String messageId,
-                                String status, String errorMessage) {
+    private void saveMessageLog(PromptMessage message, String messageId, String status, String errorMessage) {
         try {
             MessageLog log = MessageLog.builder()
                     .messageId(messageId)
@@ -106,10 +114,20 @@ public class PromptConsumer {
                     .status(status)
                     .errorMessage(errorMessage)
                     .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
                     .build();
             messageLogRepository.save(log);
         } catch (Exception e) {
             log.error("Failed to save message log: {}", messageId, e);
+        }
+    }
+
+    private void rejectMessage(Channel channel, long tag, String messageId, String error) {
+        try {
+            channel.basicReject(tag, false);
+            log.error("Rejected message {}: {}", messageId, error);
+        } catch (Exception e) {
+            log.error("Failed to reject message {}", messageId, e);
         }
     }
 }

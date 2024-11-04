@@ -4,12 +4,24 @@ server:
 spring:
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: none
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
+
+  rabbitmq:
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000  # 1초
+          max-interval: 10000     # 10초
+          multiplier: 2.0         # 백오프 승수
+          max-attempts: 3         # 최대 재시도 횟수
+        acknowledge-mode: manual
+        prefetch: 1
 
 logging:
   level:

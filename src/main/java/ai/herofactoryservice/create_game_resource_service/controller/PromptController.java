@@ -1,5 +1,6 @@
 package ai.herofactoryservice.create_game_resource_service.controller;
 
+import ai.herofactoryservice.create_game_resource_service.exception.PromptException;
 import ai.herofactoryservice.create_game_resource_service.model.dto.ApiResponse;
 import ai.herofactoryservice.create_game_resource_service.model.dto.PromptRequest;
 import ai.herofactoryservice.create_game_resource_service.model.dto.PromptResponse;
@@ -26,9 +27,19 @@ public class PromptController {
 
     @GetMapping("/{promptId}")
     public ResponseEntity<ApiResponse<PromptResponse>> getPromptStatus(@PathVariable String promptId) {
-        log.debug("Fetching prompt status for ID: {}", promptId);
-        PromptResponse response = promptService.getPromptStatus(promptId);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        try {
+            log.debug("Fetching prompt status for ID: {}", promptId);
+            PromptResponse response = promptService.getPromptStatus(promptId);
+            return ResponseEntity.ok(ApiResponse.success(response));
+        } catch (PromptException e) {
+            log.error("Error fetching prompt status: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error while fetching prompt status", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("프롬프트 상태 조회 중 오류가 발생했습니다."));
+        }
     }
 
     @GetMapping("/{promptId}/result")

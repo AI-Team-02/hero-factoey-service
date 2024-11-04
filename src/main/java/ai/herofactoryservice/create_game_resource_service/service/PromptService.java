@@ -7,6 +7,7 @@ import ai.herofactoryservice.create_game_resource_service.model.PromptStatus;
 import ai.herofactoryservice.create_game_resource_service.model.PromptMessage;
 import ai.herofactoryservice.create_game_resource_service.model.dto.PromptRequest;
 import ai.herofactoryservice.create_game_resource_service.model.dto.PromptResponse;
+import ai.herofactoryservice.create_game_resource_service.repository.CustomVectorRepository;
 import ai.herofactoryservice.create_game_resource_service.repository.PromptRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class PromptService {
     private final PromptRepository promptRepository;
+    private final CustomVectorRepository customVectorRepository;
     private final PromptProducer promptProducer;
     private final OpenAiApi openAiApi;
     private final PlatformTransactionManager transactionManager;
@@ -35,6 +37,7 @@ public class PromptService {
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public PromptResponse createPrompt(PromptRequest request) {
         String promptId = UUID.randomUUID().toString();
+        LocalDateTime now = LocalDateTime.now();
 
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
         def.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
@@ -46,10 +49,13 @@ public class PromptService {
                     .memberId(request.getMemberId())
                     .originalPrompt(request.getOriginalPrompt())
                     .status(PromptStatus.PENDING)
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(now)
+                    .updatedAt(now)  // updatedAt 명시적 설정
+                    .keywords(new ArrayList<>())  // 빈 리스트로 초기화
+                    .categoryKeywords(new ArrayList<>())  // 빈 리스트로 초기화
                     .build();
 
-            promptRepository.save(prompt);
+            customVectorRepository.savePromptWithVector(prompt);
 
             PromptMessage message = createPromptMessage(prompt);
             promptProducer.sendPromptMessage(message);
@@ -79,11 +85,10 @@ public class PromptService {
             }
 
             prompt.setStatus(PromptStatus.PROCESSING);
-            promptRepository.save(prompt);
+            customVectorRepository.savePromptWithVector(prompt);
 
-            // 병렬로 API 호출 실행
             CompletableFuture<String> analysisFuture = openAiApi.chatAsync(
-                    "프롬프트 분석을 시작합니다.",
+                    OpenAiApi.ANALYSIS_SYSTEM_PROMPT,
                     prompt.getOriginalPrompt()
             );
 
@@ -91,36 +96,38 @@ public class PromptService {
                     prompt.getOriginalPrompt()
             );
 
-            // 모든 비동기 작업 완료 대기
             CompletableFuture<Void> allOf = CompletableFuture.allOf(
                     analysisFuture, embeddingFuture
             );
 
-            // 30초 타임아웃 설정
             try {
-                allOf.get(30, TimeUnit.SECONDS);
+                allOf.get(45, TimeUnit.SECONDS);
+
+                String analysis = analysisFuture.get();
+                double[] embedding = embeddingFuture.get();
+
+                ProcessedPromptData processedData = parseProcessedData(analysis);
+                updatePromptWithResults(prompt, processedData, embedding);
+
+                prompt.setStatus(PromptStatus.COMPLETED);
+                customVectorRepository.savePromptWithVector(prompt);
+
+                transactionManager.commit(status);
+
             } catch (Exception e) {
-                throw new PromptException("API 처리 시간 초과", e);
+                throw new PromptException("API 처리 중 오류 발생: " + e.getMessage());
             }
-
-            // 결과 처리
-            ProcessedPromptData processedData = parseProcessedData(analysisFuture.get());
-            updatePromptWithResults(prompt, processedData, embeddingFuture.get());
-
-            prompt.setStatus(PromptStatus.COMPLETED);
-            promptRepository.save(prompt);
-            transactionManager.commit(status);
 
         } catch (Exception e) {
             transactionManager.rollback(status);
             handlePromptProcessingError(message.getPromptId(), e);
-            throw new PromptException("프롬프트 처리 중 오류가 발생했습니다.", e);
+            throw new PromptException("프롬프트 처리 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
     @Transactional(readOnly = true)
     public PromptResponse getPromptStatus(String promptId) {
-        Prompt prompt = promptRepository.findByPromptId(promptId)
+        Prompt prompt = customVectorRepository.findByPromptId(promptId)
                 .orElseThrow(() -> new PromptException("프롬프트 정보를 찾을 수 없습니다."));
         return createPromptResponse(prompt);
     }

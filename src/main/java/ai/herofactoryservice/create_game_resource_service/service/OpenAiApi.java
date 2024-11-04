@@ -26,7 +26,7 @@ public class OpenAiApi {
     private final ObjectMapper objectMapper;
     private final RateLimiter rateLimiter;
 
-    private static final String ANALYSIS_SYSTEM_PROMPT = """
+    public static final String ANALYSIS_SYSTEM_PROMPT = """
             다음 프롬프트에 대해 한 번의 분석으로 다음 정보를 모두 제공해주세요:
             
             1. 핵심 키워드 (최대 10개, 쉼표로 구분)
@@ -45,8 +45,16 @@ public class OpenAiApi {
             """;
 
     @Builder
-    public OpenAiApi(String apiKey, String baseUrl, String model, String embeddingModel,
-                     RestTemplate restTemplate, double requestsPerMinute) {
+    public OpenAiApi(
+            String apiKey,
+            String baseUrl,
+            String model,
+            String embeddingModel,
+            RestTemplate restTemplate,
+            double requestsPerMinute) {
+        if (apiKey == null || apiKey.trim().isEmpty() || !apiKey.startsWith("sk-")) {
+            throw new IllegalArgumentException("유효하지 않은 OpenAI API 키입니다.");
+        }
         this.apiKey = apiKey;
         this.baseUrl = baseUrl;
         this.model = model;
@@ -54,6 +62,10 @@ public class OpenAiApi {
         this.restTemplate = restTemplate;
         this.objectMapper = new ObjectMapper();
         this.rateLimiter = RateLimiter.create(requestsPerMinute);
+
+        // API 키 검증 로그
+        log.info("OpenAI API initialized with models - Chat: {}, Embedding: {}",
+                model, embeddingModel);
     }
 
     public CompletableFuture<String> chatAsync(String systemPrompt, String userPrompt) {
@@ -69,13 +81,18 @@ public class OpenAiApi {
         String url = baseUrl + "/chat/completions";
 
         try {
-            Map<String, Object> requestBody = createChatRequestBody(systemPrompt, userPrompt);
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, createHeaders());
-
-            if (log.isDebugEnabled()) {
-                log.debug("Chat request - Model: {}, System prompt length: {}, User prompt length: {}",
-                        model, systemPrompt.length(), userPrompt.length());
+            // API 키 검증
+            if (apiKey == null || apiKey.isEmpty() || !apiKey.startsWith("sk-")) {
+                throw new PromptException("유효하지 않은 OpenAI API 키입니다.");
             }
+
+            Map<String, Object> requestBody = createChatRequestBody(systemPrompt, userPrompt);
+            HttpHeaders headers = createHeaders();
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            // 디버그 로깅 추가
+            log.debug("OpenAI API Request - URL: {}, Model: {}, Headers: {}",
+                    url, model, headers);
 
             ResponseEntity<JsonNode> response = restTemplate.exchange(
                     url,
@@ -85,18 +102,34 @@ public class OpenAiApi {
             );
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return extractContentFromResponse(response.getBody());
+                String content = extractContentFromResponse(response.getBody());
+                log.debug("OpenAI API Response received successfully");
+                return content;
             }
 
-            throw new PromptException("OpenAI API 응답 처리 실패");
+            throw new PromptException("OpenAI API 응답이 비어있습니다.");
 
         } catch (HttpClientErrorException e) {
+            log.error("OpenAI API Error - Status: {}, Response: {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
             handleOpenAiError(e, "chat");
-            throw new PromptException("Unexpected error");
+            throw new PromptException("OpenAI API 호출 실패: " + e.getMessage());
         } catch (Exception e) {
-            log.error("OpenAI API 호출 중 오류 발생", e);
-            throw new PromptException("OpenAI API 호출 실패: " + e.getMessage(), e);
+            log.error("Unexpected error during OpenAI API call", e);
+            throw new PromptException("OpenAI API 호출 중 예상치 못한 오류 발생: " + e.getMessage());
         }
+    }
+
+    private Map<String, Object> createChatRequestBody(String systemPrompt, String userPrompt) {
+        Map<String, Object> systemMessage = Map.of("role", "system", "content", systemPrompt);
+        Map<String, Object> userMessage = Map.of("role", "user", "content", userPrompt);
+
+        return Map.of(
+                "model", model,
+                "messages", List.of(systemMessage, userMessage),
+                "temperature", 0.7,
+                "max_tokens", 2048
+        );
     }
 
     public CompletableFuture<double[]> embeddingsAsync(String text) {
@@ -189,18 +222,6 @@ public class OpenAiApi {
             case BAD_REQUEST -> throw new PromptException("잘못된 요청입니다: " + responseBody);
             default -> throw new PromptException("API 호출 중 오류가 발생했습니다 (" + status + "): " + responseBody);
         }
-    }
-
-    private Map<String, Object> createChatRequestBody(String systemPrompt, String userPrompt) {
-        Map<String, Object> systemMessage = Map.of("role", "system", "content", systemPrompt);
-        Map<String, Object> userMessage = Map.of("role", "user", "content", userPrompt);
-
-        return Map.of(
-                "model", model,
-                "messages", List.of(systemMessage, userMessage),
-                "temperature", 0.7,
-                "max_tokens", 2048
-        );
     }
 
     private String extractContentFromResponse(JsonNode responseBody) {

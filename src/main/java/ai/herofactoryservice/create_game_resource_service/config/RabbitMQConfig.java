@@ -9,6 +9,9 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.backoff.ExponentialBackOffPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
 
 @Configuration
 public class RabbitMQConfig {
@@ -70,6 +73,7 @@ public class RabbitMQConfig {
         return QueueBuilder.durable(PROMPT_QUEUE)
                 .withArgument("x-dead-letter-exchange", PROMPT_DLX)
                 .withArgument("x-dead-letter-routing-key", PROMPT_DLQ)
+                .withArgument("x-message-ttl", 300000) // 5분
                 .build();
     }
 
@@ -105,7 +109,7 @@ public class RabbitMQConfig {
     @Bean
     public ConnectionFactory connectionFactory() {
         CachingConnectionFactory connectionFactory = new CachingConnectionFactory();
-        connectionFactory.setHost("rabbitmq");
+        connectionFactory.setHost("localhost");
         connectionFactory.setPort(5672);
         connectionFactory.setUsername("guest");
         connectionFactory.setPassword("guest");
@@ -128,7 +132,25 @@ public class RabbitMQConfig {
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(messageConverter);
         factory.setPrefetchCount(1);
-        factory.setDefaultRequeueRejected(true);
+        factory.setDefaultRequeueRejected(false);  // DLQ로 보내도록 변경
+        // 명시적인 재시도 정책 설정
+        factory.setRetryTemplate(retryTemplate());
         return factory;
+    }
+    @Bean
+    public RetryTemplate retryTemplate() {
+        RetryTemplate template = new RetryTemplate();
+
+        ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
+        backOffPolicy.setInitialInterval(1000L);
+        backOffPolicy.setMultiplier(2.0);
+        backOffPolicy.setMaxInterval(10000L);
+        template.setBackOffPolicy(backOffPolicy);
+
+        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
+        retryPolicy.setMaxAttempts(3);
+        template.setRetryPolicy(retryPolicy);
+
+        return template;
     }
 }

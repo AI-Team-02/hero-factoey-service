@@ -11,6 +11,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgresql/init:/docker-entrypoint-initdb.d
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=vector"
     networks:
       - hero-factory-network
     healthcheck:
