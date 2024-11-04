@@ -2,6 +2,7 @@
 package ai.herofactoryservice.gameobject.controller;
 
 import ai.herofactoryservice.gameobject.service.GameObjectService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +26,11 @@ public class GameObjectController {
     
     private final GameObjectService gameObjectService;
 
-    
+
+    @Operation(
+            summary = "게임 오브젝트 이미지 생성",
+            description = "이미지와 prompt로 게임 오브젝트 이미지 생성"
+    )
     @PostMapping(value = "/process-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<byte[]> processImage(
             @RequestParam("file") MultipartFile file,
@@ -45,6 +50,10 @@ public class GameObjectController {
         }
     }
 
+    @Operation(
+            summary = "로그인 인증 테스트 API",
+            description = "로그인 토큰으로 접근 가능한지 테스트하는 엔드포인트입니다."
+    )
     @GetMapping
     public ResponseEntity<String> test(){
         return new ResponseEntity<>("success", HttpStatus.OK);
