@@ -5,7 +5,6 @@ import ai.herofactoryservice.create_game_resource_service.exception.PaymentExcep
 import ai.herofactoryservice.create_game_resource_service.model.MessageLog;
 import ai.herofactoryservice.create_game_resource_service.model.PaymentMessage;
 import ai.herofactoryservice.create_game_resource_service.repository.MessageLogRepository;
-import ai.herofactoryservice.create_game_resource_service.repository.PaymentLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

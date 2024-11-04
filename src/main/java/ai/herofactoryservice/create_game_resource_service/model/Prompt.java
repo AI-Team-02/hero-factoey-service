@@ -38,7 +38,7 @@ public class Prompt {
     @Column(columnDefinition = "vector(1536)")
     private double[] embedding;
 
-    @Convert(converter = CategoryKeywordsConverter.class)
+    @Convert(converter = ai.herofactoryservice.create_game_resource_service.converter.CategoryKeywordsConverter.class)
     @Column(columnDefinition = "jsonb")
     private List<Map<String, List<String>>> categoryKeywords;  // 카테고리별 키워드 저장
 

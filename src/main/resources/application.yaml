@@ -1,7 +1,15 @@
-server:
-  port: 8081
+kakao:
+  client:
+    id: ${KAKAO_CLIENT_ID}
 
 spring:
+  application:
+    name: hero-factory-service
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER_NAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
@@ -10,8 +18,14 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-      # pgvector 지원을 위한 설정 추가
-      hibernate.types.print.banner: false
+        # pgvector 지원을 위한 설정 추가
+        types:
+          print:
+            banner: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
   rabbitmq:
     host: localhost
@@ -29,6 +43,9 @@ spring:
     template:
       mandatory: true
 
+jwt:
+  secret: ${JWT_SECRET_KEY}
+
 # 벡터 검색 관련 설정
 vector:
   search:
@@ -37,9 +54,7 @@ vector:
 
 logging:
   level:
-    ai.herofactoryservice: DEBUG
-    org.springframework.web: INFO
-    org.hibernate: INFO
-    org.springframework.ai: DEBUG
+    ai:
+      herofactoryservice: DEBUG
     # vector 검색 관련 로깅 추가
-    org.postgresql: DEBUG
+#    org.postgresql: DEBUG
