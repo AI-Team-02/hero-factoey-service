@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]  # 배열 형태로 수정
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
