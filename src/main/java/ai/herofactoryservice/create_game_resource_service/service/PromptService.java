@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -50,9 +51,9 @@ public class PromptService {
                     .originalPrompt(request.getOriginalPrompt())
                     .status(PromptStatus.PENDING)
                     .createdAt(now)
-                    .updatedAt(now)  // updatedAt 명시적 설정
-                    .keywords(new ArrayList<>())  // 빈 리스트로 초기화
-                    .categoryKeywords(new ArrayList<>())  // 빈 리스트로 초기화
+                    .updatedAt(now)
+                    .keywords(new ArrayList<>())
+                    .categoryKeywords(new ArrayList<>())
                     .build();
 
             customVectorRepository.savePromptWithVector(prompt);
@@ -139,35 +140,103 @@ public class PromptService {
     ) {}
 
     private ProcessedPromptData parseProcessedData(String response) {
-        String[] sections = response.split("---\\w+---");
+        try {
+            Map<String, Object> parsedData = new HashMap<>();
+            String currentSection = null;
+            StringBuilder sectionContent = new StringBuilder();
 
-        List<String> keywords = Arrays.asList(sections[1].trim().split("\\s*,\\s*"));
-        String improvedPrompt = sections[2].trim();
-        Map<String, List<String>> categoryKeywords = parseCategoryKeywords(sections[3]);
+            // 기본값 초기화
+            parsedData.put("KEYWORDS", new ArrayList<String>());
+            parsedData.put("IMPROVED", "");
+            parsedData.put("CATEGORIES", new HashMap<String, List<String>>());
 
-        return new ProcessedPromptData(keywords, improvedPrompt, categoryKeywords);
+            for (String line : response.split("\n")) {
+                line = line.trim();
+
+                // 섹션 헤더 확인
+                if (line.startsWith("---") && line.endsWith("---")) {
+                    // 이전 섹션 처리
+                    if (currentSection != null) {
+                        processSection(currentSection, sectionContent.toString().trim(), parsedData);
+                    }
+
+                    // 새 섹션 시작
+                    currentSection = line.replaceAll("-", "").trim();
+                    sectionContent = new StringBuilder();
+                } else if (!line.isEmpty() && currentSection != null) {
+                    sectionContent.append(line).append("\n");
+                }
+            }
+
+            // 마지막 섹션 처리
+            if (currentSection != null) {
+                processSection(currentSection, sectionContent.toString().trim(), parsedData);
+            }
+
+            return new ProcessedPromptData(
+                    (List<String>) parsedData.get("KEYWORDS"),
+                    (String) parsedData.get("IMPROVED"),
+                    (Map<String, List<String>>) parsedData.get("CATEGORIES")
+            );
+        } catch (Exception e) {
+            log.error("Error parsing response: {}", e.getMessage());
+            return new ProcessedPromptData(
+                    new ArrayList<>(),
+                    "",
+                    new HashMap<>()
+            );
+        }
     }
 
-    private Map<String, List<String>> parseCategoryKeywords(String categorySection) {
-        Map<String, List<String>> result = new HashMap<>();
-        String[] lines = categorySection.trim().split("\n");
-
-        for (String line : lines) {
-            String[] parts = line.split(":");
-            if (parts.length == 2) {
-                String category = parts[0].trim();
-                List<String> keywords = Arrays.asList(parts[1].trim().split("\\s*,\\s*"));
-                result.put(category, keywords);
+    private void processSection(String section, String content, Map<String, Object> parsedData) {
+        switch (section.toUpperCase().trim()) {
+            case "KEYWORDS", "ENHANCED KEYWORDS" -> {
+                List<String> keywords = Arrays.stream(content.split("\n"))
+                        .flatMap(line -> Arrays.stream(line.split(",")))
+                        .map(String::trim)
+                        .filter(k -> !k.isEmpty() && !k.startsWith("[") && !k.endsWith("]"))
+                        .collect(Collectors.toList());
+                parsedData.put("KEYWORDS", keywords);
             }
+            case "IMPROVED", "IMPROVED PROMPT" -> {
+                String improvedPrompt = Arrays.stream(content.split("\n"))
+                        .filter(line -> !line.toLowerCase().startsWith("english"))
+                        .findFirst()
+                        .map(String::trim)
+                        .orElse("");
+                parsedData.put("IMPROVED", improvedPrompt);
+            }
+            case "CATEGORIES", "ENHANCED CATEGORIES" -> {
+                Map<String, List<String>> categories = new HashMap<>();
+                Arrays.stream(content.split("\n"))
+                        .filter(line -> line.contains(":"))
+                        .forEach(line -> {
+                            String[] parts = line.split(":");
+                            String category = parts[0].trim();
+                            List<String> keywords = parts.length > 1 ?
+                                    Arrays.stream(parts[1].split("\\|")[0].split(","))
+                                            .map(String::trim)
+                                            .filter(k -> !k.isEmpty() && !k.startsWith("[") && !k.endsWith("]"))
+                                            .collect(Collectors.toList()) :
+                                    new ArrayList<>();
+                            categories.put(category, keywords);
+                        });
+                parsedData.put("CATEGORIES", categories);
+            }
+            case "ANALYSIS", "REFERENCE EXAMPLES", "NEGATIVE PROMPTS" -> {
+                // 이러한 섹션들은 현재 사용하지 않으므로 무시
+                log.debug("Skipping optional section: {}", section);
+            }
+            default -> log.debug("Unknown section: {}", section);
         }
-
-        return result;
     }
 
     private void updatePromptWithResults(Prompt prompt, ProcessedPromptData data, double[] embedding) {
         prompt.setImprovedPrompt(data.improvedPrompt());
         prompt.setKeywords(data.keywords());
-        prompt.setKeywords(data.keywords());
+        prompt.setCategoryKeywords(new ArrayList<>(data.categoryKeywords().entrySet().stream()
+                .map(entry -> Collections.singletonMap(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList())));
         prompt.setEmbeddingVector(embedding);
         prompt.setCompletedAt(LocalDateTime.now());
         prompt.setUpdatedAt(LocalDateTime.now());
