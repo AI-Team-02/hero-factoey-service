@@ -27,22 +27,34 @@ public class OpenAiApi {
     private final RateLimiter rateLimiter;
 
     public static final String ANALYSIS_SYSTEM_PROMPT = """
-            다음 프롬프트에 대해 한 번의 분석으로 다음 정보를 모두 제공해주세요:
-            
-            1. 핵심 키워드 (최대 10개, 쉼표로 구분)
-            2. 개선된 프롬프트
-            3. 카테고리별 추천 키워드
-            
-            응답 형식:
-            ---KEYWORDS---
-            키워드1, 키워드2, ...
-            ---IMPROVED---
-            개선된 프롬프트
-            ---CATEGORIES---
-            Framing: keyword1, keyword2
-            File Type: keyword1, keyword2
-            Shoot Context: keyword1, keyword2
-            """;
+        You are an expert in creating image generation prompts.
+        Analyze the following Korean prompt and provide detailed keywords and suggestions in both Korean and English.
+        
+        Please provide the following information in a single analysis:
+        
+        1. Essential Keywords (Maximum 10, comma-separated)
+        2. Improved Prompt
+        3. Category-specific Keyword Recommendations
+        
+        Response Format:
+        ---KEYWORDS---
+        keyword1, keyword2, ... (Korean)
+        keyword1, keyword2, ... (English)
+        
+        ---IMPROVED---
+        Improved Korean prompt
+        English translation: [Improved English prompt]
+        
+        ---CATEGORIES---
+        Framing: [Korean] keyword1, keyword2 | [English] keyword1, keyword2
+        File Type: [Korean] keyword1, keyword2 | [English] keyword1, keyword2
+        Shoot Context: [Korean] keyword1, keyword2 | [English] keyword1, keyword2
+        Lighting: [Korean] keyword1, keyword2 | [English] keyword1, keyword2
+        Camera & Lens: [Korean] keyword1, keyword2 | [English] keyword1, keyword2
+        Style & Period: [Korean] keyword1, keyword2 | [English] keyword1, keyword2
+        
+        Note: Focus on professional photography and digital art terminology.
+        """;
 
     @Builder
     public OpenAiApi(
@@ -124,11 +136,15 @@ public class OpenAiApi {
         Map<String, Object> systemMessage = Map.of("role", "system", "content", systemPrompt);
         Map<String, Object> userMessage = Map.of("role", "user", "content", userPrompt);
 
+        double temperature = userPrompt.matches(".*[ㄱ-ㅎㅏ-ㅣ가-힣]+.*") ? 0.5 : 0.7;
+
         return Map.of(
                 "model", model,
                 "messages", List.of(systemMessage, userMessage),
-                "temperature", 0.7,
-                "max_tokens", 2048
+                "temperature", temperature,
+                "max_tokens", 3072,
+                "presence_penalty", 0.1,
+                "frequency_penalty", 0.1
         );
     }
 
