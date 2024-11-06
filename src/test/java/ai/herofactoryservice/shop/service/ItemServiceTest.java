@@ -2,6 +2,7 @@ package ai.herofactoryservice.shop.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ai.herofactoryservice.shop.dto.ItemDto;
 import ai.herofactoryservice.shop.dto.ItemsResponse;
 import ai.herofactoryservice.shop.entity.Category;
 import ai.herofactoryservice.shop.entity.Item;
@@ -98,6 +99,7 @@ class ItemServiceTest {
         itemRepository.saveAll(items);
 
     }
+
     private Item createItem(String name, String description, int price,
                             Category category, String imageUrl, String downloadUrl) {
         Item item = new Item();
@@ -136,7 +138,7 @@ class ItemServiceTest {
         Category categoryA = categoryRepository.findAll().get(index);
         em.clear();
         // when
-        ItemsResponse response = itemService.getItemsByCategory(categoryA.getId(),pageRequest);
+        ItemsResponse response = itemService.getItemsByCategory(categoryA.getId(), pageRequest);
 
         // then
         assertThat(response).isNotNull();
@@ -146,4 +148,18 @@ class ItemServiceTest {
         assertThat(response.getItems().size()).isEqualTo(size);
     }
 
+    @Test
+    @DisplayName("아이템 id로 아이템 상세 조회")
+    void getItem() {
+        // given
+        Item item = itemRepository.findAll().get(0);
+        em.clear();
+        // when
+        ItemDto findItem = itemService.getItemById(item.getId());
+
+        // then
+        assertThat(findItem).isNotNull();
+        assertThat(findItem.getName()).isEqualTo(item.getName());
+        assertThat(findItem.getId()).isEqualTo(item.getId());
+    }
 }
