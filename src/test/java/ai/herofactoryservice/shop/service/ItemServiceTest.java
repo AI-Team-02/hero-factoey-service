@@ -7,12 +7,15 @@ import ai.herofactoryservice.shop.entity.Category;
 import ai.herofactoryservice.shop.entity.Item;
 import ai.herofactoryservice.shop.repository.CategoryRepository;
 import ai.herofactoryservice.shop.repository.ItemRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +31,8 @@ class ItemServiceTest {
     private ItemRepository itemRepository;
     @Autowired
     private CategoryRepository categoryRepository;
+    @Autowired
+    private EntityManager em;
 
     @BeforeEach
     void setUp() {
@@ -42,7 +47,7 @@ class ItemServiceTest {
 
         List<Item> items = new ArrayList<>();
 
-        // 무기 아이템 (10개)
+        // 무기 아이템 (12개)
         items.add(createItem("엑스칼리버", "전설의 성검", 1000000, weapons,
                 "https://example.com/images/excalibur.jpg", "https://example.com/downloads/excalibur"));
         items.add(createItem("미스릴 대검", "미스릴로 제작된 강력한 대검", 50000, weapons,
@@ -63,6 +68,10 @@ class ItemServiceTest {
                 "https://example.com/images/wind-bow.jpg", "https://example.com/downloads/wind-bow"));
         items.add(createItem("대지의 도끼", "대지의 힘이 깃든 도끼", 65000, weapons,
                 "https://example.com/images/earth-axe.jpg", "https://example.com/downloads/earth-axe"));
+        items.add(createItem("혼돈의 지팡이", "혼돈의 마력이 깃든 지팡이", 95000, weapons,
+                "https://example.com/images/chaos-staff.jpg", "https://example.com/downloads/chaos-staff"));
+        items.add(createItem("정의의 망치", "정의의 심판을 내리는 망치", 70000, weapons,
+                "https://example.com/images/justice-hammer.jpg", "https://example.com/downloads/justice-hammer"));
 
         // 방어구 아이템 (10개)
         items.add(createItem("미스릴 갑옷", "미스릴로 제작된 튼튼한 갑옷", 80000, armor,
@@ -112,10 +121,29 @@ class ItemServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        assertThat(response.getTotalElements()).isEqualTo(20);
-        assertThat(response.getTotalPages()).isEqualTo(2);
+        assertThat(response.getTotalElements()).isEqualTo(22);
+        assertThat(response.getTotalPages()).isEqualTo(3);
         assertThat(response.isHasNext()).isTrue();
         assertThat(response.getItems().size()).isEqualTo(10);
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"0,12,2,true,10", "1,10,1,false,10"})
+    @DisplayName("특정 카테고리의 아이템 목록 페이징 조회")
+    void getItemsByCategory(int index, int totalElements, int totalPages, boolean hasNext, int size) {
+        // given
+        PageRequest pageRequest = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "id"));
+        Category categoryA = categoryRepository.findAll().get(index);
+        em.clear();
+        // when
+        ItemsResponse response = itemService.getItemsByCategory(categoryA.getId(),pageRequest);
+
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.getTotalElements()).isEqualTo(totalElements);
+        assertThat(response.getTotalPages()).isEqualTo(totalPages);
+        assertThat(response.isHasNext()).isEqualTo(hasNext);
+        assertThat(response.getItems().size()).isEqualTo(size);
     }
 
 }
