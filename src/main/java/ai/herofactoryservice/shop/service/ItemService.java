@@ -46,7 +46,7 @@ public class ItemService {
         );
     }
 
-    public ItemDto getItem(Long id) {
+    public ItemDto getItemById(Long id) {
         Item item = itemRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Item not found with id: " + id));
         return ItemDto.from(item);
