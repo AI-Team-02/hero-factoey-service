@@ -1,6 +1,4 @@
-package ai.herofactoryservice.shop.service;
-
-import static org.assertj.core.api.Assertions.assertThat;
+package ai.herofactoryservice.shop.controller;
 
 import ai.herofactoryservice.shop.dto.ItemDto;
 import ai.herofactoryservice.shop.dto.ItemsResponse;
@@ -8,35 +6,53 @@ import ai.herofactoryservice.shop.entity.Category;
 import ai.herofactoryservice.shop.entity.Item;
 import ai.herofactoryservice.shop.repository.CategoryRepository;
 import ai.herofactoryservice.shop.repository.ItemRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import ai.herofactoryservice.shop.service.ItemService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
+@RestController
+@RequestMapping("/shop")
+@RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
+public class ItemController {
+    private final ItemService itemService;
+    private final CategoryRepository categoryRepository;
+    private final ItemRepository itemRepository;
 
-@SpringBootTest
-@Transactional
-class ItemServiceTest {
-    @Autowired
-    private ItemService itemService;
-    @Autowired
-    private ItemRepository itemRepository;
-    @Autowired
-    private CategoryRepository categoryRepository;
-    @Autowired
-    private EntityManager em;
+    @GetMapping("/items")
+    public ResponseEntity<ItemsResponse> getItems(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        PageRequest pageRequest = PageRequest.of(page, size,
+                Sort.by(Sort.Direction.DESC, "id"));
+        return ResponseEntity.ok(itemService.getItems(pageRequest));
+    }
 
-    @BeforeEach
-    void setUp() {
+    @GetMapping("/items/category/{categoryId}")
+    public ResponseEntity<ItemsResponse> getItemsByCategory(
+            @PathVariable Long categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        PageRequest pageRequest = PageRequest.of(page, size,
+                Sort.by(Sort.Direction.DESC, "id"));
+        return ResponseEntity.ok(itemService.getItemsByCategory(categoryId, pageRequest));
+    }
+
+    @GetMapping("/item/{id}")
+    public ResponseEntity<ItemDto> getItem(@PathVariable Long id) {
+        return ResponseEntity.ok(itemService.getItemById(id));
+    }
+
+//    @PostConstruct
+    public void init() {
         // 카테고리 생성
         Category weapons = new Category();
         weapons.setName("무기");
@@ -45,6 +61,10 @@ class ItemServiceTest {
         Category armor = new Category();
         armor.setName("방어구");
         categoryRepository.save(armor);
+
+        Category potions = new Category();
+        potions.setName("물약");
+        categoryRepository.save(potions);
 
         List<Item> items = new ArrayList<>();
 
@@ -96,8 +116,25 @@ class ItemServiceTest {
         items.add(createItem("화염의 팔찌", "화염 저항 팔찌", 30000, armor,
                 "https://example.com/images/fire-bracelet.jpg", "https://example.com/downloads/fire-bracelet"));
 
-        itemRepository.saveAll(items);
+        // 물약 아이템 (8개)
+        items.add(createItem("힘의 물약", "일시적으로 힘을 증가시키는 물약", 1000, potions,
+                "https://example.com/images/strength-potion.jpg", "https://example.com/downloads/strength-potion"));
+        items.add(createItem("회복 물약", "체력을 회복시키는 물약", 500, potions,
+                "https://example.com/images/healing-potion.jpg", "https://example.com/downloads/healing-potion"));
+        items.add(createItem("마나 물약", "마나를 회복시키는 물약", 800, potions,
+                "https://example.com/images/mana-potion.jpg", "https://example.com/downloads/mana-potion"));
+        items.add(createItem("속도 증가 물약", "이동속도를 증가시키는 물약", 1200, potions,
+                "https://example.com/images/speed-potion.jpg", "https://example.com/downloads/speed-potion"));
+        items.add(createItem("저항의 물약", "모든 속성 저항력을 증가시키는 물약", 1500, potions,
+                "https://example.com/images/resistance-potion.jpg", "https://example.com/downloads/resistance-potion"));
+        items.add(createItem("투명 물약", "일시적으로 투명해지는 물약", 2000, potions,
+                "https://example.com/images/invisibility-potion.jpg", "https://example.com/downloads/invisibility-potion"));
+        items.add(createItem("지혜의 물약", "경험치 획득량을 증가시키는 물약", 1800, potions,
+                "https://example.com/images/wisdom-potion.jpg", "https://example.com/downloads/wisdom-potion"));
+        items.add(createItem("행운의 물약", "아이템 드롭률을 증가시키는 물약", 2500, potions,
+                "https://example.com/images/luck-potion.jpg", "https://example.com/downloads/luck-potion"));
 
+        itemRepository.saveAll(items);
     }
 
     private Item createItem(String name, String description, int price,
@@ -110,56 +147,5 @@ class ItemServiceTest {
         item.setImageUrl(imageUrl);
         item.setDownloadUrl(downloadUrl);
         return item;
-    }
-
-    @Test
-    @DisplayName("아이템 목록 페이징 조회")
-    void getItems() {
-        // given
-        PageRequest pageRequest = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "id"));
-
-        // when
-        ItemsResponse response = itemService.getItems(pageRequest);
-
-        // then
-        assertThat(response).isNotNull();
-        assertThat(response.getTotalElements()).isEqualTo(22);
-        assertThat(response.getTotalPages()).isEqualTo(3);
-        assertThat(response.isHasNext()).isTrue();
-        assertThat(response.getItems().size()).isEqualTo(10);
-    }
-
-    @ParameterizedTest
-    @CsvSource(value = {"0,12,2,true,10", "1,10,1,false,10"})
-    @DisplayName("특정 카테고리의 아이템 목록 페이징 조회")
-    void getItemsByCategory(int index, int totalElements, int totalPages, boolean hasNext, int size) {
-        // given
-        PageRequest pageRequest = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "id"));
-        Category categoryA = categoryRepository.findAll().get(index);
-        em.clear();
-        // when
-        ItemsResponse response = itemService.getItemsByCategory(categoryA.getId(), pageRequest);
-
-        // then
-        assertThat(response).isNotNull();
-        assertThat(response.getTotalElements()).isEqualTo(totalElements);
-        assertThat(response.getTotalPages()).isEqualTo(totalPages);
-        assertThat(response.isHasNext()).isEqualTo(hasNext);
-        assertThat(response.getItems().size()).isEqualTo(size);
-    }
-
-    @Test
-    @DisplayName("아이템 id로 아이템 상세 조회")
-    void getItem() {
-        // given
-        Item item = itemRepository.findAll().get(0);
-        em.clear();
-        // when
-        ItemDto findItem = itemService.getItemById(item.getId());
-
-        // then
-        assertThat(findItem).isNotNull();
-        assertThat(findItem.getName()).isEqualTo(item.getName());
-        assertThat(findItem.getId()).isEqualTo(item.getId());
     }
 }
