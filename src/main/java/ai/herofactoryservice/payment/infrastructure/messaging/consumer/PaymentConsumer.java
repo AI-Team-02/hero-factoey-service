@@ -31,7 +31,6 @@ public class PaymentConsumer {
     private final KakaoPayService kakaoPayService;
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
-    private final PaymentLogRepository paymentLogRepository;
     private final MessageLogRepository messageLogRepository;
 
     @RabbitListener(queues = RabbitMQConfig.PAYMENT_QUEUE)
