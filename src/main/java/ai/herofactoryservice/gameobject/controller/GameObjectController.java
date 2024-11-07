@@ -3,7 +3,9 @@ package ai.herofactoryservice.gameobject.controller;
 
 import ai.herofactoryservice.gameobject.service.GameObjectService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,8 +26,9 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Game Object", description = "게임 오브젝트 이미지 처리 API")
 public class GameObjectController {
-    
+
     private final GameObjectService gameObjectService;
 
     @Operation(
@@ -34,8 +37,14 @@ public class GameObjectController {
     )
     @PostMapping(value = "/process-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<byte[]> processImage(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("prompt") String prompt
+            @Parameter(
+                    description = "드로잉 이미지 파일",
+                    required = true
+            ) @RequestParam("file") MultipartFile file,
+            @Parameter(
+                    description = "이미지 설명 프롬프트 텍스트",
+                    required = true
+            ) @RequestParam("prompt") String prompt
     ) {
         try {
             byte[] processedImage = gameObjectService.sendImageToFastAPI(file, prompt);
@@ -43,7 +52,7 @@ public class GameObjectController {
             headers.setContentType(MediaType.IMAGE_PNG);
             headers.setContentDisposition(ContentDisposition.builder("attachment")
                     .filename("processed_image.png").build());
-            
+
             return new ResponseEntity<>(processedImage, headers, HttpStatus.OK);
         } catch (Exception e) {
             log.error("Error processing image: ", e);
@@ -56,7 +65,7 @@ public class GameObjectController {
             description = "로그인 토큰으로 접근 가능한지 테스트하는 엔드포인트입니다."
     )
     @GetMapping
-    public ResponseEntity<String> test(){
+    public ResponseEntity<String> test() {
         return new ResponseEntity<>("success", HttpStatus.OK);
     }
 }

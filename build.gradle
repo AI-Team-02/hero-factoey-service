@@ -4,7 +4,7 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.6'
 }
 
-group = 'ai'
+group = 'ai.herofactoryservice'
 version = '0.0.1-SNAPSHOT'
 
 java {
@@ -78,13 +78,8 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-impl:0.12.6'
     implementation 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 }
-
-// 테스트 설정
 test {
-    enabled = false  // 테스트 비활성화
-}
-
-tasks.named('test') {
+    enabled = true  // 테스트 활성화
     useJUnitPlatform()
 }
 
