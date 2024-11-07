@@ -9,8 +9,9 @@ import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 import java.util.List;
+import java.util.UUID;
 
-public interface PromptRepository extends JpaRepository<Prompt, Long> {
+public interface PromptRepository extends JpaRepository<Prompt, UUID> {
     Optional<Prompt> findByPromptId(String promptId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

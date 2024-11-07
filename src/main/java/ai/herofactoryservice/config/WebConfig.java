@@ -1,4 +1,4 @@
-package ai.herofactoryservice.common.exception;
+package ai.herofactoryservice.config;
 
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;

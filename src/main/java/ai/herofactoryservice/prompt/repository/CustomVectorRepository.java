@@ -241,6 +241,10 @@ public class CustomVectorRepository {
     public void savePromptWithVector(Prompt prompt) {
         String vectorStr = vectorToString(prompt.getEmbeddingVector());
 
+        if (prompt.getId() == null) {
+            prompt.setId(UUID.randomUUID());
+        }
+
         // vector 타입 캐스팅을 SQL 문자열에 직접 포함
         String sql = String.format("""
             INSERT INTO prompts (
@@ -264,7 +268,7 @@ public class CustomVectorRepository {
 
         try {
             jdbcTemplate.update(sql,
-                    UUID.randomUUID(),
+                    prompt.getId(),
                     prompt.getPromptId(),
                     prompt.getMemberId(),
                     prompt.getOriginalPrompt(),

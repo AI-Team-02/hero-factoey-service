@@ -5,10 +5,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "prompt_logs",
-        indexes = {
-                @Index(name = "idx_prompt_id_created_at", columnList = "prompt_id,created_at")
-        })
+@Table(name = "prompt_logs")
 @Getter @Setter
 @Builder
 @NoArgsConstructor
@@ -19,7 +16,7 @@ public class PromptLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prompt_id", nullable = false)
+    @JoinColumn(name = "prompt_id")
     private Prompt prompt;
 
     @Column(nullable = false)

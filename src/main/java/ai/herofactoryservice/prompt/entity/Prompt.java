@@ -3,7 +3,8 @@ package ai.herofactoryservice.prompt.entity;
 import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import ai.herofactoryservice.prompt.entity.enums.PromptStatus;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class Prompt {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid")
     private UUID id;
 
     @Column(name = "prompt_id")
@@ -39,12 +41,12 @@ public class Prompt {
     @Column(name = "embedding_vector", columnDefinition = "vector")
     private double[] embeddingVector;
 
-    @Type(JsonType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     @Builder.Default
     private List<Map<String, List<String>>> categoryKeywords = new ArrayList<>();
 
-    @Type(JsonType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     @Builder.Default
     private List<String> keywords = new ArrayList<>();

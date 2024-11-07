@@ -1,0 +1,64 @@
+spring:
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE}
+      minimum-idle: ${HIKARI_MIN_IDLE}
+      connection-timeout: ${HIKARI_CONN_TIMEOUT}
+
+  second-datasource:
+    url: ${DB_URL}
+    username: ${DB_USER_NAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD}
+
+server:
+  port: ${SERVER_PORT}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+    base-url: https://api.openai.com/v1
+    models:
+      chat: ${OPENAI_MODEL_CHAT}
+      embedding: ${OPENAI_MODEL_EMBEDDING}
+    request:
+      timeout: ${OPENAI_REQUEST_TIMEOUT}
+      max-tokens: ${OPENAI_REQUEST_MAX_TOKENS}
+      temperature: ${OPENAI_REQUEST_TEMPERATURE}
+      connect-timeout: ${OPENAI_REQUEST_CONNECT_TIMEOUT}
+    rate-limit:
+      requests-per-minute: ${OPENAI_RATE_LIMIT_RPM}
+      burst: ${OPENAI_RATE_LIMIT_BURST}
+
+kakao:
+  client:
+    id: ${KAKAO_CLIENT_ID}
+  pay:
+    admin:
+      key: ${KAKAO_PAY_ADMIN_KEY}
+    cid: ${KAKAO_PAY_CID}
