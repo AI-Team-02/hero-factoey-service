@@ -174,11 +174,11 @@ class ItemServiceTest {
         PageRequest pageRequest = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "id"));
 
         // when
-        Page<ItemDto> findItems = itemService.searchItems(keyword, pageRequest);
+        ItemsResponse findItems = itemService.searchItems(keyword, pageRequest);
 
         // then
         assertThat(findItems.getTotalElements()).isEqualTo(count);
-        assertThat(findItems.getContent())
+        assertThat(findItems.getItems())
                 .extracting("name")
                 .allMatch(name -> ((String) name).contains(keyword));
     }
@@ -192,10 +192,10 @@ class ItemServiceTest {
         PageRequest pageRequest = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "id"));
 
         // when
-        Page<ItemDto> result = itemService.searchItems(keyword, pageRequest);
+        ItemsResponse findItems =  itemService.searchItems(keyword, pageRequest);
 
         // then
-        assertThat(result.getTotalElements()).isEqualTo(22);
-        assertThat(result.getTotalPages()).isEqualTo(2);
+        assertThat(findItems.getTotalElements()).isEqualTo(22);
+        assertThat(findItems.getTotalPages()).isEqualTo(2);
     }
 }

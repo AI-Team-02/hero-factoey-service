@@ -53,16 +53,25 @@ public class ItemService {
         return ItemDto.from(item);
     }
 
-    public Page<ItemDto> searchItems(String keyword, Pageable pageable) {
-        Page<Item> items;
+    public ItemsResponse searchItems(String keyword, Pageable pageable) {
+        Page<Item> itemPage;
 
         if (StringUtils.hasText(keyword)) {
-            items = itemRepository.findByNameContaining(keyword, pageable);
+            itemPage = itemRepository.findByNameContaining(keyword, pageable);
         } else {
-            items = itemRepository.findAll(pageable);
+            itemPage = itemRepository.findAll(pageable);
         }
 
-        return items.map(ItemDto::from);
+        List<ItemDto> items = itemPage.getContent().stream()
+                .map(ItemDto::from)
+                .collect(Collectors.toList());
+
+        return new ItemsResponse(
+                items,
+                !itemPage.isLast(),
+                itemPage.getTotalPages(),
+                itemPage.getTotalElements()
+        );
     }
 
 }
