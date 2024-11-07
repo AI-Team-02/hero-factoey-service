@@ -17,6 +17,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
@@ -180,4 +182,21 @@ class ItemServiceTest {
                 .extracting("name")
                 .allMatch(name -> ((String) name).contains(keyword));
     }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " "})
+    @DisplayName("키워드가 null이거나 빈 문자열이면 전체 검색한다")
+    void searchItems_WithoutKeyword(String keyword) {
+        // given
+        PageRequest pageRequest = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "id"));
+
+        // when
+        Page<ItemDto> result = itemService.searchItems(keyword, pageRequest);
+
+        // then
+        assertThat(result.getTotalElements()).isEqualTo(22);
+        assertThat(result.getTotalPages()).isEqualTo(2);
+    }
+
 }
