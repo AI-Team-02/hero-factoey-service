@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -21,34 +22,47 @@ public class ItemService {
     public ItemsResponse getItems(Pageable pageable) {
         Page<Item> itemPage = itemRepository.findAll(pageable);
         List<ItemDto> items = itemPage.getContent().stream()
-            .map(ItemDto::from)
-            .collect(Collectors.toList());
-            
+                .map(ItemDto::from)
+                .collect(Collectors.toList());
+
         return new ItemsResponse(
-            items,
-            !itemPage.isLast(),
-            itemPage.getTotalPages(),
-            itemPage.getTotalElements()
+                items,
+                !itemPage.isLast(),
+                itemPage.getTotalPages(),
+                itemPage.getTotalElements()
         );
     }
 
     public ItemsResponse getItemsByCategory(Long categoryId, Pageable pageable) {
         Page<Item> itemPage = itemRepository.findByCategoryId(categoryId, pageable);
         List<ItemDto> items = itemPage.getContent().stream()
-            .map(ItemDto::from)
-            .collect(Collectors.toList());
-            
+                .map(ItemDto::from)
+                .collect(Collectors.toList());
+
         return new ItemsResponse(
-            items,
-            !itemPage.isLast(),
-            itemPage.getTotalPages(),
-            itemPage.getTotalElements()
+                items,
+                !itemPage.isLast(),
+                itemPage.getTotalPages(),
+                itemPage.getTotalElements()
         );
     }
 
     public ItemDto getItemById(Long id) {
         Item item = itemRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Item not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Item not found with id: " + id));
         return ItemDto.from(item);
     }
+
+    public Page<ItemDto> searchItems(String keyword, Pageable pageable) {
+        Page<Item> items;
+
+        if (StringUtils.hasText(keyword)) {
+            items = itemRepository.findByNameContaining(keyword, pageable);
+        } else {
+            items = itemRepository.findAll(pageable);
+        }
+
+        return items.map(ItemDto::from);
+    }
+
 }
