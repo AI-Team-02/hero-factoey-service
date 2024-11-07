@@ -54,7 +54,7 @@ public class ItemController {
     }
 
     @Operation(summary = "단일 아이템 조회", description = "특정 ID의 아이템 상세 정보를 조회합니다")
-    @GetMapping("/item/{id}")
+    @GetMapping("/items/{id}")
     public ResponseEntity<ItemDto> getItem(
             @Parameter(description = "아이템 ID") @PathVariable Long id
     ) {
@@ -62,7 +62,7 @@ public class ItemController {
     }
 
     @Operation(summary = "아이템 검색(무한 스크롤 + Debounce)", description = "아이템을 이름으로 검색합니다.")
-    @GetMapping("/search")
+    @GetMapping("/items/search")
     public ResponseEntity<ItemsResponse> searchItems(
             @Parameter(description = "검색 키워드(상품명)") @RequestParam(required = false) String keyword,
             @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") int page,
