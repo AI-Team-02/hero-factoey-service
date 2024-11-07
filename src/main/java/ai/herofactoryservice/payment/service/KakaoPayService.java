@@ -1,10 +1,17 @@
 package ai.herofactoryservice.payment.service;
 
-import ai.herofactoryservice.create_game_resource_service.exception.PaymentException;
-import ai.herofactoryservice.create_game_resource_service.messaging.PaymentProducer;
-import ai.herofactoryservice.create_game_resource_service.model.*;
-import ai.herofactoryservice.create_game_resource_service.model.dto.*;
-import ai.herofactoryservice.create_game_resource_service.repository.*;
+import ai.herofactoryservice.common.exception.PaymentException;
+import ai.herofactoryservice.payment.dto.request.PaymentRequest;
+import ai.herofactoryservice.payment.dto.response.KakaoPayApproveResponse;
+import ai.herofactoryservice.payment.dto.response.KakaoPayCancelResponse;
+import ai.herofactoryservice.payment.dto.response.KakaoPayReadyResponse;
+import ai.herofactoryservice.payment.dto.response.PaymentResponse;
+import ai.herofactoryservice.payment.entity.Payment;
+import ai.herofactoryservice.payment.entity.PaymentLog;
+import ai.herofactoryservice.payment.entity.enums.PaymentStatus;
+import ai.herofactoryservice.payment.infrastructure.messaging.producer.PaymentProducer;
+import ai.herofactoryservice.payment.repository.*;
+import ai.herofactoryservice.payment.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,7 +1,7 @@
 package ai.herofactoryservice.prompt.infrastructure.openai;
 
-import ai.herofactoryservice.create_game_resource_service.exception.PromptException;
-import ai.herofactoryservice.create_game_resource_service.exception.RateLimitException;
+import ai.herofactoryservice.common.exception.PromptException;
+import ai.herofactoryservice.common.exception.RateLimitException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.RateLimiter;

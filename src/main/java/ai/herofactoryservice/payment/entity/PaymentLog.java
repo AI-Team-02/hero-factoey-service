@@ -1,26 +1,26 @@
-package ai.herofactoryservice.prompt.entity;
+package ai.herofactoryservice.payment.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "prompt_logs",
+@Table(name = "payment_logs",
         indexes = {
-                @Index(name = "idx_prompt_id_created_at", columnList = "prompt_id,created_at")
+                @Index(name = "idx_payment_id_created_at", columnList = "payment_id,created_at")
         })
 @Getter @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PromptLog {
+public class PaymentLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prompt_id", nullable = false)
-    private Prompt prompt;
+    @JoinColumn(name = "payment_id", nullable = false)
+    private Payment payment;
 
     @Column(nullable = false)
     private String logType;

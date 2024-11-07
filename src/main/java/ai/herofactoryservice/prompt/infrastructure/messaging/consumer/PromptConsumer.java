@@ -1,10 +1,14 @@
 package ai.herofactoryservice.prompt.infrastructure.messaging.consumer;
 
 import ai.herofactoryservice.config.amqp.RabbitMQConfig;
-import ai.herofactoryservice.prompt.MessageLog;
-import ai.herofactoryservice.create_game_resource_service.model.PromptMessage;
-import ai.herofactoryservice.create_game_resource_service.repository.MessageLogRepository;
-import ai.herofactoryservice.create_game_resource_service.service.PromptService;
+import ai.herofactoryservice.infrastructure.entity.MessageLog;
+import ai.herofactoryservice.infrastructure.repository.MessageLogRepository;
+import ai.herofactoryservice.prompt.dto.PromptMessage;
+import ai.herofactoryservice.prompt.entity.Prompt;
+import ai.herofactoryservice.prompt.entity.PromptLog;
+import ai.herofactoryservice.prompt.repository.PromptLogRepository;
+import ai.herofactoryservice.prompt.repository.PromptRepository;
+import ai.herofactoryservice.prompt.service.PromptService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,8 @@ public class PromptConsumer {
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
     private final MessageLogRepository messageLogRepository;
+    private final PromptLogRepository promptLogRepository;
+    private final PromptRepository promptRepository;
 
     @RabbitListener(queues = RabbitMQConfig.PROMPT_QUEUE)
     public void processPrompt(Message message, Channel channel,
@@ -39,7 +45,6 @@ public class PromptConsumer {
         TransactionStatus status = transactionManager.getTransaction(def);
 
         try {
-            // 이미 처리된 메시지 체크
             if (isMessageProcessed(messageId)) {
                 channel.basicAck(tag, false);
                 return;
@@ -47,19 +52,23 @@ public class PromptConsumer {
 
             PromptMessage promptMessage = extractPromptMessage(message);
             if (promptMessage == null) {
-                // 메시지 파싱 실패시 DLQ로 전송
                 rejectMessage(channel, tag, messageId, "Failed to parse message");
                 return;
             }
 
-            // 메시지 처리 시작 로그
-            saveMessageLog(promptMessage, messageId, "PROCESSING", null);
+            Prompt prompt = promptRepository.findByPromptId(promptMessage.getPromptId())
+                    .orElseThrow(() -> new RuntimeException("프롬프트를 찾을 수 없습니다."));
 
-            // 프롬프트 처리
+            // 메시징 인프라 로그
+            saveMessageLog(promptMessage, messageId, "PROCESSING", null);
+            // 비즈니스 로그
+            savePromptLog(prompt, "MESSAGE_PROCESSING", "메시지 처리 시작");
+
             promptService.processPrompt(promptMessage);
 
-            // 성공 처리
             saveMessageLog(promptMessage, messageId, "PROCESSED", null);
+            savePromptLog(prompt, "MESSAGE_PROCESSED", "메시지 처리 완료");
+
             channel.basicAck(tag, false);
             transactionManager.commit(status);
 
@@ -73,6 +82,18 @@ public class PromptConsumer {
                 log.error("Failed to handle message failure", ex);
                 saveMessageLog(extractPromptMessage(message), messageId, "FAILED",
                         "Failed to handle message: " + ex.getMessage());
+
+                try {
+                    PromptMessage failedMessage = extractPromptMessage(message);
+                    if (failedMessage != null) {
+                        Prompt prompt = promptRepository.findByPromptId(failedMessage.getPromptId()).orElse(null);
+                        if (prompt != null) {
+                            savePromptLog(prompt, "MESSAGE_FAILED", "메시지 처리 실패: " + ex.getMessage());
+                        }
+                    }
+                } catch (Exception logEx) {
+                    log.error("Failed to save failure log", logEx);
+                }
             }
         }
     }
@@ -82,13 +103,29 @@ public class PromptConsumer {
         PromptMessage promptMessage = extractPromptMessage(message);
         saveMessageLog(promptMessage, messageId, "FAILED", e.getMessage());
 
+        Prompt prompt = null;
+        if (promptMessage != null) {
+            prompt = promptRepository.findByPromptId(promptMessage.getPromptId()).orElse(null);
+            if (prompt != null) {
+                savePromptLog(prompt, "MESSAGE_FAILED", "메시지 처리 실패: " + e.getMessage());
+            }
+        }
+
         int failedCount = messageLogRepository.countFailedAttempts(messageId);
 
         if (failedCount >= 3) {
             log.warn("Message {} failed {} times, sending to DLQ", messageId, failedCount);
+            if (prompt != null) {
+                savePromptLog(prompt, "MESSAGE_FAILED",
+                        String.format("최대 재시도 횟수(%d) 초과로 DLQ로 이동", failedCount));
+            }
             channel.basicReject(tag, false);
         } else {
             log.warn("Message {} failed, attempt {}/3, requeueing", messageId, failedCount);
+            if (prompt != null) {
+                savePromptLog(prompt, "MESSAGE_REQUEUED",
+                        String.format("메시지 재처리 예약 (시도: %d/3)", failedCount));
+            }
             channel.basicNack(tag, false, true);
         }
     }
@@ -119,6 +156,20 @@ public class PromptConsumer {
             messageLogRepository.save(log);
         } catch (Exception e) {
             log.error("Failed to save message log: {}", messageId, e);
+        }
+    }
+
+    private void savePromptLog(Prompt prompt, String logType, String content) {
+        try {
+            PromptLog log = PromptLog.builder()
+                    .prompt(prompt)
+                    .logType(logType)
+                    .content(content)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            promptLogRepository.save(log);
+        } catch (Exception e) {
+            log.error("Failed to save prompt log: {}", prompt.getPromptId(), e);
         }
     }
 

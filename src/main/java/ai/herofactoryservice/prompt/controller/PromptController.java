@@ -2,9 +2,9 @@ package ai.herofactoryservice.prompt.controller;
 
 
 import ai.herofactoryservice.common.exception.PromptException;
-import ai.herofactoryservice.prompt.dto.prompt.request.PromptRequest;
-import ai.herofactoryservice.prompt.dto.prompt.response.PromptResponse;
-import ai.herofactoryservice.prompt.dto.common.ApiResponse;
+import ai.herofactoryservice.prompt.dto.request.PromptRequest;
+import ai.herofactoryservice.prompt.dto.response.PromptResponse;
+import ai.herofactoryservice.common.dto.ApiResponse;
 import ai.herofactoryservice.prompt.service.PromptService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,6 +1,6 @@
 package ai.herofactoryservice.prompt.repository;
 
-import ai.herofactoryservice.create_game_resource_service.model.PromptResult;
+import ai.herofactoryservice.prompt.entity.PromptResult;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
