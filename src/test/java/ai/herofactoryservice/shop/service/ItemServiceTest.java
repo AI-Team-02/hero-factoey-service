@@ -167,7 +167,7 @@ class ItemServiceTest {
     }
 
     @ParameterizedTest
-    @CsvSource(value =  {"검,4", "장갑,0"})
+    @CsvSource(value = {"검,4", "장갑,0"})
     @DisplayName("키워드 존재시, 해당 키워드로 검색")
     void searchItems(String keyword, int count) {
         // given
@@ -198,5 +198,4 @@ class ItemServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(22);
         assertThat(result.getTotalPages()).isEqualTo(2);
     }
-
 }

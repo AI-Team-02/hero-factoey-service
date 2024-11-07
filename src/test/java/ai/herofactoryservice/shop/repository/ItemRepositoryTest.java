@@ -167,7 +167,6 @@ class ItemRepositoryTest {
         // given
         PageRequest pageRequest = PageRequest.of(0, 5);
 
-
         // when
         Page<Item> foundItems = itemRepository.findByNameContaining(keyword, pageRequest);
 
