@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/shop")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Shop-Item", description = "상점 아이템 상세 & 목록 조회 API")
+@Tag(name = "Shop", description = "상점 아이템 조회 & 검색 API")
 public class ItemController {
     private final ItemService itemService;
     private final CategoryRepository categoryRepository;
@@ -58,6 +59,17 @@ public class ItemController {
             @Parameter(description = "아이템 ID") @PathVariable Long id
     ) {
         return ResponseEntity.ok(itemService.getItemById(id));
+    }
+
+    @Operation(summary = "아이템 검색(무한 스크롤 + Debounce)", description = "아이템을 이름으로 검색합니다.")
+    @GetMapping("/search")
+    public ResponseEntity<ItemsResponse> searchItems(
+            @Parameter(description = "검색 키워드(상품명)") @RequestParam(required = false) String keyword,
+            @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size) {
+
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        return ResponseEntity.ok(itemService.searchItems(keyword, pageRequest));
     }
 
     //    @PostConstruct
