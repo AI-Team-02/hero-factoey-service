@@ -1,4 +1,14 @@
 spring:
+
+  springdoc:
+    api-docs:
+      path: /api-docs
+    swagger-ui:
+      path: /swagger-ui.html
+      tags-sorter: alpha
+      operations-sorter: alpha
+    packages-to-scan: ai.herofactoryservice
+
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
