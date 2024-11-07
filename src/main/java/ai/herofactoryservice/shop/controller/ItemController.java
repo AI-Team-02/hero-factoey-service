@@ -7,7 +7,10 @@ import ai.herofactoryservice.shop.entity.Item;
 import ai.herofactoryservice.shop.repository.CategoryRepository;
 import ai.herofactoryservice.shop.repository.ItemRepository;
 import ai.herofactoryservice.shop.service.ItemService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,38 +23,44 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/shop")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Shop-Item", description = "상점 아이템 상세 & 목록 조회 API")
 public class ItemController {
     private final ItemService itemService;
     private final CategoryRepository categoryRepository;
     private final ItemRepository itemRepository;
 
+    @Operation(summary = "전체 아이템 목록 조회(무한 스크롤)", description = "페이징 처리된 전체 아이템 목록을 조회합니다")
     @GetMapping("/items")
     public ResponseEntity<ItemsResponse> getItems(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size
     ) {
         PageRequest pageRequest = PageRequest.of(page, size,
                 Sort.by(Sort.Direction.DESC, "id"));
         return ResponseEntity.ok(itemService.getItems(pageRequest));
     }
 
+    @Operation(summary = "카테고리별 아이템 목록 조회(무한 스크롤)", description = "특정 카테고리의 아이템 목록을 조회합니다")
     @GetMapping("/items/category/{categoryId}")
     public ResponseEntity<ItemsResponse> getItemsByCategory(
-            @PathVariable Long categoryId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @Parameter(description = "카테고리 ID") @PathVariable Long categoryId,
+            @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size
     ) {
         PageRequest pageRequest = PageRequest.of(page, size,
                 Sort.by(Sort.Direction.DESC, "id"));
         return ResponseEntity.ok(itemService.getItemsByCategory(categoryId, pageRequest));
     }
 
+    @Operation(summary = "단일 아이템 조회", description = "특정 ID의 아이템 상세 정보를 조회합니다")
     @GetMapping("/item/{id}")
-    public ResponseEntity<ItemDto> getItem(@PathVariable Long id) {
+    public ResponseEntity<ItemDto> getItem(
+            @Parameter(description = "아이템 ID") @PathVariable Long id
+    ) {
         return ResponseEntity.ok(itemService.getItemById(id));
     }
 
-//    @PostConstruct
+    //    @PostConstruct
     public void init() {
         // 카테고리 생성
         Category weapons = new Category();
@@ -128,7 +137,8 @@ public class ItemController {
         items.add(createItem("저항의 물약", "모든 속성 저항력을 증가시키는 물약", 1500, potions,
                 "https://example.com/images/resistance-potion.jpg", "https://example.com/downloads/resistance-potion"));
         items.add(createItem("투명 물약", "일시적으로 투명해지는 물약", 2000, potions,
-                "https://example.com/images/invisibility-potion.jpg", "https://example.com/downloads/invisibility-potion"));
+                "https://example.com/images/invisibility-potion.jpg",
+                "https://example.com/downloads/invisibility-potion"));
         items.add(createItem("지혜의 물약", "경험치 획득량을 증가시키는 물약", 1800, potions,
                 "https://example.com/images/wisdom-potion.jpg", "https://example.com/downloads/wisdom-potion"));
         items.add(createItem("행운의 물약", "아이템 드롭률을 증가시키는 물약", 2500, potions,
