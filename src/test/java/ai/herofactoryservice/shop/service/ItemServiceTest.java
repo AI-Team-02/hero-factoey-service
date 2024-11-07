@@ -19,6 +19,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
@@ -161,5 +162,22 @@ class ItemServiceTest {
         assertThat(findItem).isNotNull();
         assertThat(findItem.getName()).isEqualTo(item.getName());
         assertThat(findItem.getId()).isEqualTo(item.getId());
+    }
+
+    @ParameterizedTest
+    @CsvSource(value =  {"검,4", "장갑,0"})
+    @DisplayName("키워드 존재시, 해당 키워드로 검색")
+    void searchItems(String keyword, int count) {
+        // given
+        PageRequest pageRequest = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "id"));
+
+        // when
+        Page<ItemDto> findItems = itemService.searchItems(keyword, pageRequest);
+
+        // then
+        assertThat(findItems.getTotalElements()).isEqualTo(count);
+        assertThat(findItems.getContent())
+                .extracting("name")
+                .allMatch(name -> ((String) name).contains(keyword));
     }
 }
