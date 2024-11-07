@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Shop", description = "상점 아이템 조회 & 검색 API")
+
 public class ItemController {
     private final ItemService itemService;
     private final CategoryRepository categoryRepository;
@@ -41,6 +41,7 @@ public class ItemController {
         return ResponseEntity.ok(itemService.getItems(pageRequest));
     }
 
+
     @Operation(summary = "카테고리별 아이템 목록 조회(무한 스크롤)", description = "특정 카테고리의 아이템 목록을 조회합니다")
     @GetMapping("/items/category/{categoryId}")
     public ResponseEntity<ItemsResponse> getItemsByCategory(
@@ -52,6 +53,7 @@ public class ItemController {
                 Sort.by(Sort.Direction.DESC, "id"));
         return ResponseEntity.ok(itemService.getItemsByCategory(categoryId, pageRequest));
     }
+
 
     @Operation(summary = "단일 아이템 조회", description = "특정 ID의 아이템 상세 정보를 조회합니다")
     @GetMapping("/items/{id}")

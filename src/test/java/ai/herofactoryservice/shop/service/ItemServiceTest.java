@@ -192,7 +192,7 @@ class ItemServiceTest {
         PageRequest pageRequest = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "id"));
 
         // when
-        ItemsResponse findItems =  itemService.searchItems(keyword, pageRequest);
+        ItemsResponse findItems = itemService.searchItems(keyword, pageRequest);
 
         // then
         assertThat(findItems.getTotalElements()).isEqualTo(22);
