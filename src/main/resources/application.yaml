@@ -9,12 +9,6 @@ spring:
       minimum-idle: ${HIKARI_MIN_IDLE}
       connection-timeout: ${HIKARI_CONN_TIMEOUT}
 
-  second-datasource:
-    url: ${DB_URL}
-    username: ${DB_USER_NAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-
   rabbitmq:
     host: rabbitmq
     port: 5672

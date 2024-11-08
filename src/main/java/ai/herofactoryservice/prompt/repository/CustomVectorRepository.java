@@ -10,7 +10,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Array;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
@@ -238,37 +240,43 @@ public class CustomVectorRepository {
         ));
     }
 
+    public void flush() {
+        try {
+            // JDBC 레벨에서 현재 트랜잭션의 변경사항을 즉시 데이터베이스에 반영
+            jdbcTemplate.execute("SELECT 1");  // 더미 쿼리를 실행하여 변경사항이 즉시 반영되게 함
+        } catch (Exception e) {
+            log.error("Error flushing changes to database", e);
+            throw new RuntimeException("Failed to flush changes: " + e.getMessage(), e);
+        }
+    }
+
     public void savePromptWithVector(Prompt prompt) {
         String vectorStr = vectorToString(prompt.getEmbeddingVector());
 
-        if (prompt.getId() == null) {
-            prompt.setId(UUID.randomUUID());
-        }
-
         // vector 타입 캐스팅을 SQL 문자열에 직접 포함
         String sql = String.format("""
-            INSERT INTO prompts (
-                id, prompt_id, member_id, original_prompt, improved_prompt, 
-                embedding_vector, status, created_at, updated_at,
-                completed_at, error_message, keywords, category_keywords
-            ) VALUES (?, ?, ?, ?, ?, 
-                     %s,
-                     ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb)
-            ON CONFLICT (prompt_id) DO UPDATE SET
-                improved_prompt = EXCLUDED.improved_prompt,
-                embedding_vector = EXCLUDED.embedding_vector,
-                status = EXCLUDED.status,
-                updated_at = EXCLUDED.updated_at,
-                completed_at = EXCLUDED.completed_at,
-                error_message = EXCLUDED.error_message,
-                keywords = EXCLUDED.keywords,
-                category_keywords = EXCLUDED.category_keywords
-            """,
-                vectorStr == null ? "NULL" : "'" + vectorStr + "'::vector(1536)");
+    INSERT INTO prompts (
+        id, prompt_id, member_id, original_prompt, improved_prompt, 
+        embedding_vector, status, created_at, updated_at,
+        completed_at, error_message, keywords, category_keywords
+    ) VALUES (?, ?, ?, ?, ?, 
+             %s::vector(1536),
+             ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb)
+    ON CONFLICT (prompt_id) DO UPDATE SET
+        improved_prompt = EXCLUDED.improved_prompt,
+        embedding_vector = EXCLUDED.embedding_vector,
+        status = EXCLUDED.status,
+        updated_at = EXCLUDED.updated_at,
+        completed_at = EXCLUDED.completed_at,
+        error_message = EXCLUDED.error_message,
+        keywords = EXCLUDED.keywords,
+        category_keywords = EXCLUDED.category_keywords
+    """,
+                vectorStr == null ? "NULL" : "'" + vectorStr + "'");
 
         try {
             jdbcTemplate.update(sql,
-                    prompt.getId(),
+                    UUID.randomUUID(),
                     prompt.getPromptId(),
                     prompt.getMemberId(),
                     prompt.getOriginalPrompt(),
@@ -289,10 +297,13 @@ public class CustomVectorRepository {
 
     private String vectorToString(double[] vector) {
         if (vector == null) return null;
-        return "[" + String.join(",",
-                Arrays.stream(vector)
-                        .mapToObj(String::valueOf)
-                        .toArray(String[]::new)) + "]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < vector.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(String.format("%.8f", vector[i]));  // 소수점 정밀도 제어
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     public List<Prompt> findSimilarPrompts(double[] vector, double threshold, int limit) {
@@ -324,4 +335,5 @@ public class CustomVectorRepository {
         List<Prompt> prompts = jdbcTemplate.query(sql, promptRowMapper, promptId);
         return prompts.isEmpty() ? Optional.empty() : Optional.of(prompts.get(0));
     }
+
 }

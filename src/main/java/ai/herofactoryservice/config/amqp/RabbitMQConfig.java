@@ -23,6 +23,11 @@ public class RabbitMQConfig {
     public static final String PROMPT_EXCHANGE = "prompt-exchange";
     public static final String PROMPT_DLQ = "prompt-dlq";
     public static final String PROMPT_DLX = "prompt-dlx";
+    public static final String SUBSCRIPTION_QUEUE = "subscription-queue";
+    public static final String SUBSCRIPTION_EXCHANGE = "subscription-exchange";
+    public static final String SUBSCRIPTION_DLQ = "subscription-dlq";
+    public static final String SUBSCRIPTION_DLX = "subscription-dlx";
+
 
     @Bean
     public MessageConverter messageConverter() {
@@ -152,5 +157,42 @@ public class RabbitMQConfig {
         template.setRetryPolicy(retryPolicy);
 
         return template;
+    }
+    @Bean
+    public Queue subscriptionQueue() {
+        return QueueBuilder.durable(SUBSCRIPTION_QUEUE)
+                .withArgument("x-dead-letter-exchange", SUBSCRIPTION_DLX)
+                .withArgument("x-dead-letter-routing-key", SUBSCRIPTION_DLQ)
+                .withArgument("x-message-ttl", 300000) // 5분
+                .build();
+    }
+
+    @Bean
+    public Queue subscriptionDeadLetterQueue() {
+        return QueueBuilder.durable(SUBSCRIPTION_DLQ).build();
+    }
+
+    @Bean
+    public DirectExchange subscriptionExchange() {
+        return new DirectExchange(SUBSCRIPTION_EXCHANGE);
+    }
+
+    @Bean
+    public DirectExchange subscriptionDeadLetterExchange() {
+        return new DirectExchange(SUBSCRIPTION_DLX);
+    }
+
+    @Bean
+    public Binding subscriptionBinding() {
+        return BindingBuilder.bind(subscriptionQueue())
+                .to(subscriptionExchange())
+                .with(SUBSCRIPTION_QUEUE);
+    }
+
+    @Bean
+    public Binding subscriptionDeadLetterBinding() {
+        return BindingBuilder.bind(subscriptionDeadLetterQueue())
+                .to(subscriptionDeadLetterExchange())
+                .with(SUBSCRIPTION_DLQ);
     }
 }

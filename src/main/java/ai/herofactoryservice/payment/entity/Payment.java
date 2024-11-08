@@ -63,4 +63,15 @@ public class Payment {
 
     @Column(length = 500)
     private String errorMessage;  // 에러 메시지
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

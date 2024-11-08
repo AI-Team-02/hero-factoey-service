@@ -1,5 +1,8 @@
 spring:
 
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
   springdoc:
     api-docs:
       path: /api-docs
@@ -10,10 +13,22 @@ spring:
     packages-to-scan: ai.herofactoryservice
 
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
     properties:
       hibernate:
+        format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+    defer-datasource-initialization: true
+
+    sql:
+      init:
+        mode: always
+        schema-locations: classpath:./postgresql/init/init.sql
+        continue-on-error: false
 
   datasource:
     url: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
@@ -25,12 +40,6 @@ spring:
       minimum-idle: ${HIKARI_MIN_IDLE}
       connection-timeout: ${HIKARI_CONN_TIMEOUT}
 
-  second-datasource:
-    url: ${DB_URL}
-    username: ${DB_USER_NAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-
   rabbitmq:
     host: localhost
     port: 5672
@@ -41,7 +50,7 @@ spring:
     redis:
       host: localhost
       port: 6379
-      password: ${REDIS_PASSWORD}
+      password: SEONGIL1234!
 
 server:
   port: ${SERVER_PORT}
@@ -72,3 +81,22 @@ kakao:
     admin:
       key: ${KAKAO_PAY_ADMIN_KEY}
     cid: ${KAKAO_PAY_CID}
+
+payment:
+  retry:
+    max-attempts: 3
+    delay-minutes: 240  # 4시간
+
+#  mail:
+#    host: smtp.gmail.com  # 또는 사용하는 메일 서버
+#    port: 587
+#    username: your-email@gmail.com
+#    password: your-app-password
+#    properties:
+#      mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+#      company-name: Hero Factory
+#    protocol: smtp

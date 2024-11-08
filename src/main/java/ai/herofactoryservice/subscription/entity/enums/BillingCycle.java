@@ -1,6 +1,7 @@
 package ai.herofactoryservice.subscription.entity.enums;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 public enum BillingCycle {
     MONTHLY("월간", 1),
@@ -26,6 +27,13 @@ public enum BillingCycle {
         return switch (this) {
             case MONTHLY -> from.plusMonths(1);
             case YEARLY -> from.plusYears(1);
+        };
+    }
+
+    public ChronoUnit getChronoUnit() {
+        return switch (this) {
+            case MONTHLY -> ChronoUnit.MONTHS;
+            case YEARLY -> ChronoUnit.YEARS;
         };
     }
 }

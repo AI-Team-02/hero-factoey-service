@@ -1,6 +1,8 @@
 package ai.herofactoryservice.prompt.service;
 
 import ai.herofactoryservice.common.exception.PromptException;
+import ai.herofactoryservice.prompt.entity.PromptLog;
+import ai.herofactoryservice.prompt.entity.enums.PromptLogType;
 import ai.herofactoryservice.prompt.infrastructure.messaging.producer.PromptProducer;
 import ai.herofactoryservice.prompt.entity.Prompt;
 import ai.herofactoryservice.prompt.entity.enums.PromptStatus;
@@ -9,6 +11,7 @@ import ai.herofactoryservice.prompt.dto.request.PromptRequest;
 import ai.herofactoryservice.prompt.dto.response.PromptResponse;
 import ai.herofactoryservice.prompt.infrastructure.openai.OpenAiApi;
 import ai.herofactoryservice.prompt.repository.CustomVectorRepository;
+import ai.herofactoryservice.prompt.repository.PromptLogRepository;
 import ai.herofactoryservice.prompt.repository.PromptRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,21 +34,19 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PromptService {
     private final PromptRepository promptRepository;
+    private final PromptLogRepository promptLogRepository;
     private final CustomVectorRepository customVectorRepository;
     private final PromptProducer promptProducer;
     private final OpenAiApi openAiApi;
     private final PlatformTransactionManager transactionManager;
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional
     public PromptResponse createPrompt(PromptRequest request) {
         String promptId = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
 
-        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
-        def.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
-        TransactionStatus status = transactionManager.getTransaction(def);
-
         try {
+            // 1. 프롬프트 엔티티 생성
             Prompt prompt = Prompt.builder()
                     .promptId(promptId)
                     .memberId(request.getMemberId())
@@ -57,16 +58,36 @@ public class PromptService {
                     .categoryKeywords(new ArrayList<>())
                     .build();
 
-            customVectorRepository.savePromptWithVector(prompt);
+            // 2. 프롬프트 저장 (JPA 사용)
+            prompt = promptRepository.saveAndFlush(prompt);
 
+            // 3. 로그 엔티티 생성 및 연관관계 설정
+            PromptLog log = PromptLog.builder()
+                    .prompt(prompt)
+                    .logType(PromptLogType.CREATED.name())
+                    .content("Prompt created with original text: " + request.getOriginalPrompt())
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            // 4. 양방향 관계 설정
+            prompt.getPromptLogs().add(log);
+
+            // 5. 로그 저장
+            promptLogRepository.save(log);
+
+            // 6. vector 정보 저장 (필요한 경우)
+            if (prompt.getEmbeddingVector() != null) {
+                customVectorRepository.savePromptWithVector(prompt);
+                customVectorRepository.flush();
+            }
+
+            // 7. 메시지 생성 및 전송
             PromptMessage message = createPromptMessage(prompt);
             promptProducer.sendPromptMessage(message);
 
-            transactionManager.commit(status);
             return createPromptResponse(prompt);
 
         } catch (Exception e) {
-            transactionManager.rollback(status);
             log.error("프롬프트 생성 중 오류 발생", e);
             throw new PromptException("프롬프트 생성 중 오류가 발생했습니다.", e);
         }
@@ -138,7 +159,8 @@ public class PromptService {
             List<String> keywords,
             String improvedPrompt,
             Map<String, List<String>> categoryKeywords
-    ) {}
+    ) {
+    }
 
     private ProcessedPromptData parseProcessedData(String response) {
         try {
@@ -278,6 +300,62 @@ public class PromptService {
 
         } catch (Exception ex) {
             log.error("프롬프트 에러 처리 중 추가 오류 발생", ex);
+        }
+    }
+
+    @Transactional
+    public void logPromptEvent(String promptId, PromptLogType logType, String content) {
+        try {
+            // 먼저 프롬프트를 조회하고 영속성 컨텍스트에 로드
+            Prompt prompt = customVectorRepository.findByPromptId(promptId)
+                    .orElseThrow(() -> new PromptException("프롬프트를 찾을 수 없습니다: " + promptId));
+
+            // 로그 엔티티 생성
+            PromptLog log = PromptLog.builder()
+                    .prompt(prompt)
+                    .logType(logType.name())
+                    .content(content)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            // 로그 저장
+            promptLogRepository.save(log);
+
+            // 즉시 플러시하여 DB에 반영
+            promptLogRepository.flush();
+        } catch (Exception e) {
+            log.error("Failed to save prompt log: promptId={}, logType={}", promptId, logType, e);
+            // 로그 저장 실패는 예외를 던지지 않고 로깅만 수행
+        }
+    }
+
+    @Transactional
+    protected void savePromptLog(Prompt prompt, PromptLogType logType, String content) {
+        try {
+            // 1. 영속성 컨텍스트에서 프롬프트 조회
+            Prompt managedPrompt = promptRepository.findById(prompt.getId())
+                    .orElseThrow(() -> new PromptException("프롬프트를 찾을 수 없습니다."));
+
+            // 2. 로그 생성
+            PromptLog log = PromptLog.builder()
+                    .prompt(managedPrompt)
+                    .logType(logType.name())
+                    .content(content)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            // 3. 양방향 관계 설정
+            managedPrompt.getPromptLogs().add(log);
+
+            // 4. 저장
+            promptLogRepository.save(log);
+
+            // 5. 즉시 반영
+            promptLogRepository.flush();
+        } catch (Exception e) {
+            log.error("Failed to save prompt log: promptId={}, logType={}",
+                    prompt.getPromptId(), logType, e);
+            // 로그 저장 실패는 예외를 던지지 않고 로깅만 수행
         }
     }
 }

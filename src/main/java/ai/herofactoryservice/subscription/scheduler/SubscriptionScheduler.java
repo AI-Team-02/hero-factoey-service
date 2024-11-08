@@ -1,29 +1,29 @@
-//package ai.herofactoryservice.subscription.scheduler;
-//
-//import ai.herofactoryservice.subscription.entity.Subscription;
-//import ai.herofactoryservice.subscription.entity.enums.SubscriptionStatus;
-//import ai.herofactoryservice.subscription.repository.SubscriptionRepository;
+package ai.herofactoryservice.subscription.scheduler;
+
+import ai.herofactoryservice.subscription.entity.Subscription;
+import ai.herofactoryservice.subscription.entity.enums.SubscriptionStatus;
+import ai.herofactoryservice.subscription.repository.SubscriptionRepository;
 //import ai.herofactoryservice.subscription.service.NotificationService;
-//import ai.herofactoryservice.subscription.service.SubscriptionService;
-//import lombok.RequiredArgsConstructor;
-//import lombok.extern.slf4j.Slf4j;
-//import org.springframework.scheduling.annotation.Scheduled;
-//import org.springframework.stereotype.Component;
-//import org.springframework.transaction.annotation.Transactional;
-//
-//import java.time.LocalDateTime;
-//import java.util.List;
-//import java.util.concurrent.TimeUnit;
-//
-//@Slf4j
-//@Component
-//@RequiredArgsConstructor
-//public class SubscriptionScheduler {
-//    private final SubscriptionRepository subscriptionRepository;
-//    private final SubscriptionService subscriptionService;
+import ai.herofactoryservice.subscription.service.SubscriptionService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class SubscriptionScheduler {
+    private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionService subscriptionService;
 //    private final NotificationService notificationService;
-//
-//    // 매일 자정에 실행
+
+    // 매일 자정에 실행
 //    @Scheduled(cron = "0 0 0 * * *")
 //    @Transactional
 //    public void processSubscriptionRenewals() {
@@ -43,7 +43,7 @@
 //            }
 //        }
 //    }
-//
+
 //    // 매일 오전 9시에 실행 - 3일 후 갱신 예정인 구독에 대한 알림
 //    @Scheduled(cron = "0 0 9 * * *")
 //    public void sendRenewalReminders() {
@@ -57,8 +57,8 @@
 //            notificationService.sendRenewalReminder(subscription);
 //        }
 //    }
-//
-//    // 결제 실패한 구독에 대해 3일간 재시도 (4시간 간격)
+
+    // 결제 실패한 구독에 대해 3일간 재시도 (4시간 간격)
 //    @Scheduled(fixedDelay = 4, timeUnit = TimeUnit.HOURS)
 //    @Transactional
 //    public void retryFailedPayments() {
@@ -81,21 +81,21 @@
 //            }
 //        }
 //    }
-//
+
 //    // Helper methods
 //    private void processSubscriptionRenewal(Subscription subscription) {
 //        log.info("Processing renewal for subscription: {}", subscription.getSubscriptionId());
 //        subscriptionService.renewSubscription(subscription.getSubscriptionId());
 //        notificationService.sendRenewalSuccess(subscription);
 //    }
-//
+
 //    private void handleRenewalFailure(Subscription subscription) {
 //        subscription.setStatus(SubscriptionStatus.PAYMENT_FAILED);
 //        subscription.setUpdatedAt(LocalDateTime.now());
 //        subscriptionRepository.save(subscription);
 //        notificationService.sendRenewalFailure(subscription);
 //    }
-//
+
 //    private void handleMaxRetriesExceeded(Subscription subscription) {
 //        subscription.setStatus(SubscriptionStatus.EXPIRED);
 //        subscription.setEndDate(LocalDateTime.now());
@@ -103,15 +103,15 @@
 //        subscriptionRepository.save(subscription);
 //        notificationService.sendSubscriptionExpired(subscription);
 //    }
-//
-//    private int getRetryCount(Subscription subscription) {
-//        // 재시도 횟수를 저장하고 조회하는 로직 구현
-//        // 예: payment_logs 테이블에서 PAYMENT_FAILED 상태의 로그 수 조회
-//        return 0; // TODO: Implement actual retry count logic
-//    }
-//
-//    private void recordRetryAttempt(Subscription subscription) {
-//        // 재시도 시도를 기록하는 로직 구현
-//        // 예: payment_logs 테이블에 재시도 기록 저장
-//    }
-//}
+
+    private int getRetryCount(Subscription subscription) {
+        // 재시도 횟수를 저장하고 조회하는 로직 구현
+        // 예: payment_logs 테이블에서 PAYMENT_FAILED 상태의 로그 수 조회
+        return 0; // TODO: Implement actual retry count logic
+    }
+
+    private void recordRetryAttempt(Subscription subscription) {
+        // 재시도 시도를 기록하는 로직 구현
+        // 예: payment_logs 테이블에 재시도 기록 저장
+    }
+}

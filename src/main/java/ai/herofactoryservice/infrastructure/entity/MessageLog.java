@@ -10,10 +10,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "message_logs", indexes = {
-        @Index(name = "idx_message_status", columnList = "messageId,status"),
-        @Index(name = "idx_payment", columnList = "paymentId"),
-        @Index(name = "idx_prompt", columnList = "promptId"),
-        @Index(name = "idx_message_composite", columnList = "messageId,status,promptId")
+        @Index(name = "idx_message_status", columnList = "message_id,status"),
+        @Index(name = "idx_payment", columnList = "payment_id"),
+        @Index(name = "idx_prompt", columnList = "prompt_id"),
+        @Index(name = "idx_message_composite", columnList = "message_id,status,prompt_id")
 })
 @Getter @Setter
 @Builder
@@ -24,30 +24,38 @@ public class MessageLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "message_id", nullable = false)
     private String messageId;
 
-    @Column(nullable = true)  // payment 또는 prompt 중 하나만 있을 수 있으므로
+    @Column(name = "payment_id", nullable = true)
     private String paymentId;
 
-    @Column(nullable = true)
+    @Column(name = "prompt_id", nullable = true)
     private String promptId;
 
     @Column(nullable = false)
     private String status;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    @Column(name = "error_message")
     private String errorMessage;
 
+    @Column(name = "retry_count")
     @Builder.Default
     private Integer retryCount = 0;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
 
     @PreUpdate
     protected void onUpdate() {

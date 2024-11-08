@@ -16,15 +16,22 @@ public class PromptLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prompt_id")
+    @JoinColumn(name = "prompt_id", referencedColumnName = "prompt_id")
     private Prompt prompt;
 
-    @Column(nullable = false)
+    @Column(name = "log_type", nullable = false, length = 50)
     private String logType;
 
-    @Column(nullable = false)
+    @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }

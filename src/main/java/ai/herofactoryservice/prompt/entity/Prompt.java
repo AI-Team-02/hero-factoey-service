@@ -1,8 +1,10 @@
 package ai.herofactoryservice.prompt.entity;
 
 import io.hypersistence.utils.hibernate.type.json.JsonType;
+import io.hypersistence.utils.hibernate.type.array.DoubleArrayType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import ai.herofactoryservice.prompt.entity.enums.PromptStatus;
@@ -26,7 +28,7 @@ public class Prompt {
     @Column(columnDefinition = "uuid")
     private UUID id;
 
-    @Column(name = "prompt_id")
+    @Column(name = "prompt_id", unique = true, nullable = false)
     private String promptId;
 
     @Column(nullable = false)
@@ -38,21 +40,22 @@ public class Prompt {
     @Column(columnDefinition = "TEXT")
     private String improvedPrompt;
 
-    @Column(name = "embedding_vector", columnDefinition = "vector")
+    @Type(DoubleArrayType.class)
+    @Column(name = "embedding_vector", columnDefinition = "vector(1536)")
     private double[] embeddingVector;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
+    @Type(JsonType.class)
+    @Column(name = "category_keywords", columnDefinition = "jsonb")
     @Builder.Default
     private List<Map<String, List<String>>> categoryKeywords = new ArrayList<>();
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
+    @Type(JsonType.class)
+    @Column(name = "keywords", columnDefinition = "jsonb")
     @Builder.Default
     private List<String> keywords = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     @Builder.Default
     private PromptStatus status = PromptStatus.PENDING;
 
@@ -68,6 +71,10 @@ public class Prompt {
     @Column
     private LocalDateTime completedAt;
 
+    @OneToMany(mappedBy = "prompt", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<PromptLog> promptLogs = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -77,5 +84,11 @@ public class Prompt {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    // 편의 메서드 추가
+    public void addPromptLog(PromptLog log) {
+        this.promptLogs.add(log);
+        log.setPrompt(this);
     }
 }
