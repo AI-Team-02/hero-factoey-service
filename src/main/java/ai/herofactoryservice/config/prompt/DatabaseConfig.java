@@ -63,6 +63,7 @@ public class DatabaseConfig {
 
     private void dropTablesInOrder() {
         String[] tables = {
+                "subscription_payments",
                 "prompt_logs",
                 "payment_logs",
                 "message_logs",
@@ -184,6 +185,25 @@ public class DatabaseConfig {
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """);
+
+        // subscription_payments 테이블 생성
+        jdbcTemplate.execute("""
+            CREATE TABLE subscription_payments (
+                id BIGSERIAL PRIMARY KEY,
+                external_payment_id VARCHAR(255) NOT NULL,
+                subscription_id BIGINT NOT NULL,
+                payment_id VARCHAR(36),
+                amount BIGINT NOT NULL,
+                status VARCHAR(50) NOT NULL,
+                billing_date TIMESTAMP NOT NULL,
+                paid_at TIMESTAMP,
+                failure_reason VARCHAR(500),
+                retry_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP
+             )
+        """);
+
         log.info("Created message_logs table");
     }
 

@@ -27,19 +27,19 @@ import java.util.concurrent.CompletableFuture;
 public class NCloudSmsService {
     private final RestTemplate restTemplate;
 
-    @Value("${ncloud.sms.api.url}")
+    @Value("${spring.cloud.ncp.sms.api.url}")
     private String apiUrl;
 
-    @Value("${ncloud.sms.api.service-id}")
+    @Value("${spring.cloud.ncp.sms.api.service-id}")
     private String serviceId;
 
-    @Value("${ncloud.sms.api.access-key}")
+    @Value("${spring.cloud.ncp.sms.api.access-key}")
     private String accessKey;
 
-    @Value("${ncloud.sms.api.secret-key}")
+    @Value("${spring.cloud.ncp.sms.api.secret-key}")
     private String secretKey;
 
-    @Value("${ncloud.sms.sender.number}")
+    @Value("${spring.cloud.ncp.sms.sender.number}")
     private String senderNumber;
 
     @Async

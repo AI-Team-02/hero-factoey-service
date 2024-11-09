@@ -29,7 +29,7 @@ public class PaymentRetryService {
     private final PaymentRepository paymentRepository;
     private final PaymentLogRepository paymentLogRepository;
     private final KakaoPayService kakaoPayService;
-//    private final NotificationService notificationService;
+    private final NotificationService notificationService;
     private final SubscriptionProducer subscriptionProducer;
 
     @Value("${payment.retry.max-attempts}")
@@ -38,24 +38,24 @@ public class PaymentRetryService {
     @Value("${payment.retry.delay-minutes}")
     private int retryDelayMinutes;
 
-//    @Transactional
-//    public void processPaymentRetry(String subscriptionId) {
-//        Subscription subscription = subscriptionRepository.findBySubscriptionIdWithLock(subscriptionId)
-//                .orElseThrow(() -> new PaymentException("구독 정보를 찾을 수 없습니다."));
-//
-//        PaymentRetryContext retryContext = new PaymentRetryContext(subscription);
-//
-//        if (!shouldRetryPayment(retryContext)) {
-//            handleMaxRetriesExceeded(subscription);
-//            return;
-//        }
-//
-//        try {
-//            executePaymentRetry(retryContext);
-//        } catch (Exception e) {
-//            handleRetryFailure(retryContext, e);
-//        }
-//    }
+    @Transactional
+    public void processPaymentRetry(String subscriptionId) {
+        Subscription subscription = subscriptionRepository.findBySubscriptionIdWithLock(subscriptionId)
+                .orElseThrow(() -> new PaymentException("구독 정보를 찾을 수 없습니다."));
+
+        PaymentRetryContext retryContext = new PaymentRetryContext(subscription);
+
+        if (!shouldRetryPayment(retryContext)) {
+            handleMaxRetriesExceeded(subscription);
+            return;
+        }
+
+        try {
+            executePaymentRetry(retryContext);
+        } catch (Exception e) {
+            handleRetryFailure(retryContext, e);
+        }
+    }
 
     private boolean shouldRetryPayment(PaymentRetryContext context) {
         // 재시도 횟수 체크
@@ -79,61 +79,61 @@ public class PaymentRetryService {
         return true;
     }
 
-//    private void executePaymentRetry(PaymentRetryContext context) {
-//        Subscription subscription = context.getSubscription();
-//        SubscriptionPayment lastPayment = subscription.getLastPayment();
-//
-//        // 결제 요청 생성
-//        PaymentRequest paymentRequest = createRetryPaymentRequest(subscription);
-//
-//        // 결제 시도
-//        PaymentResponse response = kakaoPayService.initiatePayment(paymentRequest);
-//
-//        // 성공 시 처리
-//        handleRetrySuccess(subscription, response);
-//
-//        // 로그 기록
-//        saveRetryLog(subscription, lastPayment, "SUCCESS", null);
-//    }
+    private void executePaymentRetry(PaymentRetryContext context) {
+        Subscription subscription = context.getSubscription();
+        SubscriptionPayment lastPayment = subscription.getLastPayment();
 
-//    private void handleRetrySuccess(Subscription subscription, PaymentResponse response) {
-//        subscription.setStatus(SubscriptionStatus.ACTIVE);
-//        subscription.calculateNextPaymentDate();
-//        subscription.setUpdatedAt(LocalDateTime.now());
-//        subscriptionRepository.save(subscription);
-//
-//        notificationService.sendPaymentRetrySuccess(subscription);
-//    }
+        // 결제 요청 생성
+        PaymentRequest paymentRequest = createRetryPaymentRequest(subscription);
 
-//    private void handleRetryFailure(PaymentRetryContext context, Exception e) {
-//        Subscription subscription = context.getSubscription();
-//        SubscriptionPayment lastPayment = subscription.getLastPayment();
-//
-//        // 재시도 횟수 증가
-//        lastPayment.incrementRetryCount();
-//
-//        // 로그 기록
-//        saveRetryLog(subscription, lastPayment, "FAILED", e.getMessage());
-//
-//        // 다음 재시도 예약 또는 최종 실패 처리
-//        if (context.getRetryCount() >= maxRetryAttempts - 1) {
-//            handleMaxRetriesExceeded(subscription);
-//        } else {
-//            scheduleNextRetry(subscription, lastPayment);
-//        }
-//
-//        notificationService.sendPaymentRetryFailure(subscription);
-//    }
+        // 결제 시도
+        PaymentResponse response = kakaoPayService.initiatePayment(paymentRequest);
 
-//    private void handleMaxRetriesExceeded(Subscription subscription) {
-//        subscription.setStatus(SubscriptionStatus.EXPIRED);
-//        subscription.setEndDate(LocalDateTime.now());
-//        subscription.setUpdatedAt(LocalDateTime.now());
-//        subscriptionRepository.save(subscription);
-//
-//        notificationService.sendSubscriptionExpired(subscription);
-//        subscriptionProducer.sendSubscriptionMessage(subscription, "EXPIRED");
-//    }
+        // 성공 시 처리
+        handleRetrySuccess(subscription, response);
+
+        // 로그 기록
+        saveRetryLog(subscription, lastPayment, "SUCCESS", null);
+    }
+
+    private void handleRetrySuccess(Subscription subscription, PaymentResponse response) {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.calculateNextPaymentDate();
+        subscription.setUpdatedAt(LocalDateTime.now());
+        subscriptionRepository.save(subscription);
+
+        notificationService.sendPaymentRetrySuccess(subscription);
+    }
+
+    private void handleRetryFailure(PaymentRetryContext context, Exception e) {
+        Subscription subscription = context.getSubscription();
+        SubscriptionPayment lastPayment = subscription.getLastPayment();
+
+        // 재시도 횟수 증가
+        lastPayment.incrementRetryCount();
+
+        // 로그 기록
+        saveRetryLog(subscription, lastPayment, "FAILED", e.getMessage());
+
+        // 다음 재시도 예약 또는 최종 실패 처리
+        if (context.getRetryCount() >= maxRetryAttempts - 1) {
+            handleMaxRetriesExceeded(subscription);
+        } else {
+            scheduleNextRetry(subscription, lastPayment);
+        }
+
+        notificationService.sendPaymentRetryFailure(subscription);
+    }
+
+    private void handleMaxRetriesExceeded(Subscription subscription) {
+        subscription.setStatus(SubscriptionStatus.EXPIRED);
+        subscription.setEndDate(LocalDateTime.now());
+        subscription.setUpdatedAt(LocalDateTime.now());
+        subscriptionRepository.save(subscription);
+
+        notificationService.sendSubscriptionExpired(subscription);
+        subscriptionProducer.sendSubscriptionMessage(subscription, "EXPIRED");
+    }
 
     private void saveRetryLog(Subscription subscription, SubscriptionPayment subscriptionPayment,
                               String status, String errorMessage) {
@@ -143,9 +143,11 @@ public class PaymentRetryService {
                 errorMessage != null ? "오류: " + errorMessage : "성공"
         );
 
-        // paymentId가 Long 타입이므로 findByPaymentId 메서드 사용
-        Payment payment = paymentRepository.findByPaymentId(String.valueOf(subscriptionPayment.getPaymentId()))
-                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+        // payment 엔티티를 직접 사용
+        Payment payment = subscriptionPayment.getPayment();
+        if (payment == null) {
+            throw new PaymentException("결제 정보를 찾을 수 없습니다.");
+        }
 
         PaymentLog paymentLog = PaymentLog.builder()
                 .payment(payment)
@@ -169,9 +171,11 @@ public class PaymentRetryService {
     private void scheduleNextRetry(Subscription subscription, SubscriptionPayment subscriptionPayment) {
         LocalDateTime nextRetryTime = LocalDateTime.now().plusMinutes(retryDelayMinutes);
 
-        // paymentId가 Long 타입이므로 findByPaymentId 메서드 사용
-        Payment payment = paymentRepository.findByPaymentId(String.valueOf(subscriptionPayment.getPaymentId()))
-                .orElseThrow(() -> new PaymentException("결제 정보를 찾을 수 없습니다."));
+        // payment 엔티티를 직접 사용
+        Payment payment = subscriptionPayment.getPayment();
+        if (payment == null) {
+            throw new PaymentException("결제 정보를 찾을 수 없습니다.");
+        }
 
         PaymentLog paymentLog = PaymentLog.builder()
                 .payment(payment)
@@ -209,4 +213,5 @@ public class PaymentRetryService {
             return lastRetryTime;
         }
     }
+
 }

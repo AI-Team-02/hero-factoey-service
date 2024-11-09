@@ -17,16 +17,16 @@ public class SubscriptionPayment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String paymentId;  // 외부 결제 시스템의 결제 ID
+    @Column(name = "external_payment_id", nullable = false)
+    private String externalPaymentId;  // 외부 결제 시스템의 결제 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_id", nullable = false)
     private Subscription subscription;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id")
-    private Payment payment;  // 실제 결제 정보와의 연결
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id", referencedColumnName = "paymentId")
+    private Payment payment;
 
     @Column(nullable = false)
     private Long amount;
@@ -36,11 +36,11 @@ public class SubscriptionPayment {
     private PaymentStatus status;
 
     @Column(nullable = false)
-    private LocalDateTime billingDate;  // 청구일
+    private LocalDateTime billingDate;
 
-    private LocalDateTime paidAt;        // 실제 결제일
-    private String failureReason;        // 실패 사유
-    private Integer retryCount;          // 재시도 횟수
+    private LocalDateTime paidAt;
+    private String failureReason;
+    private Integer retryCount;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;

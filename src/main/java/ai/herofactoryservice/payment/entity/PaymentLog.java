@@ -5,10 +5,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "payment_logs",
-        indexes = {
-                @Index(name = "idx_payment_id_created_at", columnList = "payment_id,created_at")
-        })
+@Table(name = "payment_logs")
 @Getter @Setter
 @Builder
 @NoArgsConstructor
@@ -19,7 +16,7 @@ public class PaymentLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id", nullable = false)
+    @JoinColumn(name = "payment_id", referencedColumnName = "paymentId")
     private Payment payment;
 
     @Column(nullable = false)

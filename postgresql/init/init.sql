@@ -79,6 +79,24 @@ CREATE TABLE message_logs (
                               updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create subscription_payments table
+CREATE TABLE subscription_payments (
+                                       id BIGSERIAL PRIMARY KEY,
+                                       external_payment_id VARCHAR(255) NOT NULL,
+                                       subscription_id BIGINT NOT NULL,
+                                       payment_id VARCHAR(36),  -- BIGINT에서 VARCHAR(36)으로 변경
+                                       amount BIGINT NOT NULL,
+                                       status VARCHAR(50) NOT NULL,
+                                       billing_date TIMESTAMP NOT NULL,
+                                       paid_at TIMESTAMP,
+                                       failure_reason VARCHAR(500),
+                                       retry_count INTEGER DEFAULT 0,
+                                       created_at TIMESTAMP NOT NULL,
+                                       updated_at TIMESTAMP,
+                                       FOREIGN KEY (subscription_id) REFERENCES subscriptions(id),
+                                       FOREIGN KEY (payment_id) REFERENCES payments(payment_id)  -- id 대신 payment_id 참조
+);
+
 -- Create indexes
 CREATE INDEX idx_prompts_prompt_id ON prompts(prompt_id);
 CREATE INDEX idx_prompt_logs_prompt_id ON prompt_logs(prompt_id);
@@ -89,6 +107,9 @@ CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_payments_member_id ON payments(member_id);
 CREATE INDEX idx_payments_status ON payments(status);
 CREATE INDEX idx_payment_logs_payment_id_created_at ON payment_logs(payment_id, created_at);
+CREATE INDEX idx_subscription_payments_subscription ON subscription_payments(subscription_id);
+CREATE INDEX idx_subscription_payments_payment ON subscription_payments(payment_id);
+CREATE INDEX idx_subscription_payments_status ON subscription_payments(status);
 
 -- Create vector similarity search index
 CREATE INDEX prompt_vector_idx ON prompts

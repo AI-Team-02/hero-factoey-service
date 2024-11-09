@@ -1,8 +1,36 @@
 spring:
+  # 메일 설정
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_APP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+      company-name: Hero Factory
+    protocol: smtp
 
+  # NCloud SMS 설정
+  cloud:    # ncloud를 cloud로 변경
+    ncp:    # 네이버 클라우드 플랫폼 표준 네이밍으로 변경
+      sms:
+        api:
+          url: ${SMS_API_URL}
+          service-id: ${SMS_SERVICE_ID}
+          access-key: ${SMS_ACCESS_KEY}
+          secret-key: ${SMS_SECRET_KEY}
+        sender:
+          number: ${SMS_SENDER_NUMBER}
+
+  # CORS 설정
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
+  # Swagger 설정
   springdoc:
     api-docs:
       path: /api-docs
@@ -12,6 +40,7 @@ spring:
       operations-sorter: alpha
     packages-to-scan: ai.herofactoryservice
 
+  # JPA 설정
   jpa:
     hibernate:
       ddl-auto: update
@@ -30,6 +59,7 @@ spring:
         schema-locations: classpath:./postgresql/init/init.sql
         continue-on-error: false
 
+  # 데이터소스 설정
   datasource:
     url: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
     username: ${POSTGRES_USER}
@@ -40,24 +70,29 @@ spring:
       minimum-idle: ${HIKARI_MIN_IDLE}
       connection-timeout: ${HIKARI_CONN_TIMEOUT}
 
+  # RabbitMQ 설정
   rabbitmq:
     host: localhost
     port: 5672
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
 
+  # Redis 설정
   data:
     redis:
       host: localhost
       port: 6379
       password: SEONGIL1234!
 
+# 서버 설정
 server:
   port: ${SERVER_PORT}
 
+# JWT 설정
 jwt:
   secret-key: ${JWT_SECRET_KEY}
 
+# OpenAI 설정
 openai:
   api:
     key: ${OPENAI_API_KEY}
@@ -74,6 +109,7 @@ openai:
       requests-per-minute: ${OPENAI_RATE_LIMIT_RPM}
       burst: ${OPENAI_RATE_LIMIT_BURST}
 
+# 카카오 설정
 kakao:
   client:
     id: ${KAKAO_CLIENT_ID}
@@ -82,31 +118,8 @@ kakao:
       key: ${KAKAO_PAY_ADMIN_KEY}
     cid: ${KAKAO_PAY_CID}
 
+# 결제 재시도 설정
 payment:
   retry:
     max-attempts: 3
     delay-minutes: 240  # 4시간
-
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_APP_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-      company-name: Hero Factory
-    protocol: smtp
-
-  ncloud:
-    sms:
-      api:
-        url: ${SMS_API_URL}
-        service-id: ${SMS_SERVICE_ID}
-        access-key: ${SMS_ACCESS_KEY}
-        secret-key: ${SMS_SECRET_KEY}
-      sender:
-        number: ${SMS_SENDER_NUMBER}

@@ -135,4 +135,20 @@ public class NotificationService {
                     subscription.getSubscriptionId(), e);
         }
     }
+    public void sendPaymentRetryFailure(Subscription subscription) {
+        String message = String.format(
+                "안녕하세요. %s님의 구독 결제 재시도가 실패했습니다. " +
+                        "결제 수단을 확인해 주시기 바랍니다. " +
+                        "결제가 계속 실패할 경우 구독이 자동 해지될 수 있습니다.",
+                subscription.getMemberId()
+        );
+
+        try {
+            emailService.sendEmail(subscription.getMemberId(), "구독 결제 재시도 실패", message);
+            smsService.sendSms(subscription.getMemberId(), message);
+        } catch (Exception e) {
+            log.error("Failed to send payment retry failure notification for subscription: {}",
+                    subscription.getSubscriptionId(), e);
+        }
+    }
 }
