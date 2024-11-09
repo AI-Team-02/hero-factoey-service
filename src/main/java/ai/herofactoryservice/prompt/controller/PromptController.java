@@ -31,8 +31,7 @@ public class PromptController {
 
     @Operation(
             summary = "프롬프트 생성",
-            description = "새로운 프롬프트를 생성하고 처리를 시작합니다.",
-            tags = { "Prompt" }
+            description = "새로운 프롬프트를 생성하고 처리를 시작합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -40,7 +39,10 @@ public class PromptController {
                     description = "프롬프트 생성 성공",
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = ApiResponse.class)
+                            schema = @Schema(
+                                    implementation = CommonResponse.class,
+                                    subTypes = {PromptResponse.class}
+                            )
                     )
             ),
             @ApiResponse(
@@ -48,7 +50,15 @@ public class PromptController {
                     description = "잘못된 요청",
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = ApiResponse.class)
+                            schema = @Schema(implementation = CommonResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증되지 않은 사용자",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = CommonResponse.class)
                     )
             ),
             @ApiResponse(
@@ -56,7 +66,7 @@ public class PromptController {
                     description = "서버 에러",
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = ApiResponse.class)
+                            schema = @Schema(implementation = CommonResponse.class)
                     )
             )
     })
@@ -78,8 +88,7 @@ public class PromptController {
 
     @Operation(
             summary = "프롬프트 상태 조회",
-            description = "프롬프트 ID로 현재 상태를 조회합니다.",
-            tags = { "Prompt" }
+            description = "프롬프트 ID로 현재 상태를 조회합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -87,7 +96,10 @@ public class PromptController {
                     description = "조회 성공",
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = ApiResponse.class)
+                            schema = @Schema(
+                                    implementation = CommonResponse.class,
+                                    subTypes = {PromptResponse.class}
+                            )
                     )
             ),
             @ApiResponse(
@@ -95,7 +107,15 @@ public class PromptController {
                     description = "잘못된 요청",
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = ApiResponse.class)
+                            schema = @Schema(implementation = CommonResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증되지 않은 사용자",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = CommonResponse.class)
                     )
             ),
             @ApiResponse(
@@ -103,15 +123,7 @@ public class PromptController {
                     description = "프롬프트를 찾을 수 없음",
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = ApiResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "서버 에러",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ApiResponse.class)
+                            schema = @Schema(implementation = CommonResponse.class)
                     )
             )
     })
@@ -141,8 +153,7 @@ public class PromptController {
 
     @Operation(
             summary = "프롬프트 결과 조회",
-            description = "프롬프트 처리 결과를 조회합니다. 처리가 완료되지 않은 경우 202 상태 코드를 반환합니다.",
-            tags = { "Prompt" }
+            description = "프롬프트 처리 결과를 조회합니다. 처리가 완료되지 않은 경우 202 상태 코드를 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -162,12 +173,12 @@ public class PromptController {
                     )
             ),
             @ApiResponse(
-                    responseCode = "404",
-                    description = "프롬프트를 찾을 수 없음"
+                    responseCode = "401",
+                    description = "인증되지 않은 사용자"
             ),
             @ApiResponse(
-                    responseCode = "500",
-                    description = "서버 에러"
+                    responseCode = "404",
+                    description = "프롬프트를 찾을 수 없음"
             )
     })
     @GetMapping("/{promptId}/result")
@@ -187,13 +198,5 @@ public class PromptController {
         } else {
             return ResponseEntity.accepted().body(response);
         }
-    }
-
-    @Operation(hidden = true)
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<CommonResponse<Void>> handleException(Exception e) {
-        log.error("Error processing prompt", e);
-        return ResponseEntity.internalServerError()
-                .body(CommonResponse.error("프롬프트 처리 중 오류가 발생했습니다: " + e.getMessage()));
     }
 }

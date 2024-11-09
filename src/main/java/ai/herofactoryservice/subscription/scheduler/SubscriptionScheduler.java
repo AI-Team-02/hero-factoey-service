@@ -1,9 +1,11 @@
 package ai.herofactoryservice.subscription.scheduler;
 
+import ai.herofactoryservice.payment.entity.PaymentLog;
+import ai.herofactoryservice.payment.repository.PaymentLogRepository;
 import ai.herofactoryservice.subscription.entity.Subscription;
 import ai.herofactoryservice.subscription.entity.enums.SubscriptionStatus;
 import ai.herofactoryservice.subscription.repository.SubscriptionRepository;
-//import ai.herofactoryservice.subscription.service.NotificationService;
+import ai.herofactoryservice.subscription.service.NotificationService;
 import ai.herofactoryservice.subscription.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,97 +23,125 @@ import java.util.concurrent.TimeUnit;
 public class SubscriptionScheduler {
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionService subscriptionService;
-//    private final NotificationService notificationService;
+    private final NotificationService notificationService;
+    private final PaymentLogRepository paymentLogRepository;
 
-    // 매일 자정에 실행
-//    @Scheduled(cron = "0 0 0 * * *")
-//    @Transactional
-//    public void processSubscriptionRenewals() {
-//        log.info("Starting daily subscription renewal processing");
-//        LocalDateTime now = LocalDateTime.now();
-//
-//        List<Subscription> dueSubscriptions = subscriptionRepository.findDueSubscriptions(now);
-//        log.info("Found {} subscriptions due for renewal", dueSubscriptions.size());
-//
-//        for (Subscription subscription : dueSubscriptions) {
-//            try {
-//                processSubscriptionRenewal(subscription);
-//            } catch (Exception e) {
-//                log.error("Failed to process renewal for subscription: {}",
-//                        subscription.getSubscriptionId(), e);
-//                handleRenewalFailure(subscription);
-//            }
-//        }
-//    }
+    private static final int MAX_RETRY_ATTEMPTS = 18; // 3일 * 6회 = 18회
+    private static final String RETRY_LOG_TYPE = "PAYMENT_RETRY";
+    private static final String FAILURE_LOG_TYPE = "PAYMENT_FAILURE";
 
-//    // 매일 오전 9시에 실행 - 3일 후 갱신 예정인 구독에 대한 알림
-//    @Scheduled(cron = "0 0 9 * * *")
-//    public void sendRenewalReminders() {
-//        LocalDateTime startDate = LocalDateTime.now().plusDays(3);
-//        LocalDateTime endDate = startDate.plusDays(1);
-//
-//        List<Subscription> upcomingRenewals =
-//                subscriptionRepository.findUpcomingRenewals(startDate, endDate);
-//
-//        for (Subscription subscription : upcomingRenewals) {
-//            notificationService.sendRenewalReminder(subscription);
-//        }
-//    }
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void processSubscriptionRenewals() {
+        log.info("Starting daily subscription renewal processing");
+        LocalDateTime now = LocalDateTime.now();
 
-    // 결제 실패한 구독에 대해 3일간 재시도 (4시간 간격)
-//    @Scheduled(fixedDelay = 4, timeUnit = TimeUnit.HOURS)
-//    @Transactional
-//    public void retryFailedPayments() {
-//        List<Subscription> failedSubscriptions =
-//                subscriptionRepository.findByStatus(SubscriptionStatus.PAYMENT_FAILED);
-//
-//        for (Subscription subscription : failedSubscriptions) {
-//            // 최대 재시도 횟수(3일 * 6회 = 18회) 체크
-//            if (getRetryCount(subscription) >= 18) {
-//                handleMaxRetriesExceeded(subscription);
-//                continue;
-//            }
-//
-//            try {
-//                processSubscriptionRenewal(subscription);
-//            } catch (Exception e) {
-//                log.error("Retry payment failed for subscription: {}",
-//                        subscription.getSubscriptionId(), e);
-//                recordRetryAttempt(subscription);
-//            }
-//        }
-//    }
+        List<Subscription> dueSubscriptions = subscriptionRepository.findDueSubscriptions(now);
+        log.info("Found {} subscriptions due for renewal", dueSubscriptions.size());
 
-//    // Helper methods
-//    private void processSubscriptionRenewal(Subscription subscription) {
-//        log.info("Processing renewal for subscription: {}", subscription.getSubscriptionId());
-//        subscriptionService.renewSubscription(subscription.getSubscriptionId());
-//        notificationService.sendRenewalSuccess(subscription);
-//    }
-
-//    private void handleRenewalFailure(Subscription subscription) {
-//        subscription.setStatus(SubscriptionStatus.PAYMENT_FAILED);
-//        subscription.setUpdatedAt(LocalDateTime.now());
-//        subscriptionRepository.save(subscription);
-//        notificationService.sendRenewalFailure(subscription);
-//    }
-
-//    private void handleMaxRetriesExceeded(Subscription subscription) {
-//        subscription.setStatus(SubscriptionStatus.EXPIRED);
-//        subscription.setEndDate(LocalDateTime.now());
-//        subscription.setUpdatedAt(LocalDateTime.now());
-//        subscriptionRepository.save(subscription);
-//        notificationService.sendSubscriptionExpired(subscription);
-//    }
-
-    private int getRetryCount(Subscription subscription) {
-        // 재시도 횟수를 저장하고 조회하는 로직 구현
-        // 예: payment_logs 테이블에서 PAYMENT_FAILED 상태의 로그 수 조회
-        return 0; // TODO: Implement actual retry count logic
+        for (Subscription subscription : dueSubscriptions) {
+            try {
+                processSubscriptionRenewal(subscription);
+                log.info("Successfully processed renewal for subscription: {}",
+                        subscription.getSubscriptionId());
+            } catch (Exception e) {
+                log.error("Failed to process renewal for subscription: {} - {}",
+                        subscription.getSubscriptionId(), e.getMessage());
+                handleRenewalFailure(subscription, e);
+            }
+        }
     }
 
-    private void recordRetryAttempt(Subscription subscription) {
-        // 재시도 시도를 기록하는 로직 구현
-        // 예: payment_logs 테이블에 재시도 기록 저장
+    @Scheduled(cron = "0 0 9 * * *")
+    public void sendRenewalReminders() {
+        log.info("Starting renewal reminder processing");
+        LocalDateTime startDate = LocalDateTime.now().plusDays(3);
+        LocalDateTime endDate = startDate.plusDays(1);
+
+        List<Subscription> upcomingRenewals =
+                subscriptionRepository.findUpcomingRenewals(startDate, endDate);
+        log.info("Found {} subscriptions for renewal reminders", upcomingRenewals.size());
+
+        for (Subscription subscription : upcomingRenewals) {
+            try {
+                notificationService.sendRenewalReminder(subscription);
+                log.info("Sent renewal reminder for subscription: {}",
+                        subscription.getSubscriptionId());
+            } catch (Exception e) {
+                log.error("Failed to send renewal reminder for subscription: {} - {}",
+                        subscription.getSubscriptionId(), e.getMessage());
+            }
+        }
+    }
+
+    @Scheduled(fixedDelay = 4, timeUnit = TimeUnit.HOURS)
+    @Transactional
+    public void retryFailedPayments() {
+        log.info("Starting failed payment retry processing");
+        List<Subscription> failedSubscriptions =
+                subscriptionRepository.findByStatus(SubscriptionStatus.PAYMENT_FAILED);
+        log.info("Found {} failed subscriptions to retry", failedSubscriptions.size());
+
+        for (Subscription subscription : failedSubscriptions) {
+            String subscriptionId = subscription.getSubscriptionId();
+            Long paymentId = subscription.getLastPayment().getPayment().getId();
+            long retryCount = paymentLogRepository.countByPaymentIdAndLogType(paymentId, RETRY_LOG_TYPE);
+
+            if (retryCount >= MAX_RETRY_ATTEMPTS) {
+                log.warn("Max retry attempts exceeded for subscription: {}", subscriptionId);
+                handleMaxRetriesExceeded(subscription);
+                continue;
+            }
+
+            try {
+                processSubscriptionRenewal(subscription);
+                recordPaymentLog(subscription, RETRY_LOG_TYPE, "Payment retry successful");
+                notificationService.sendPaymentRetrySuccess(subscription);
+                log.info("Successfully retried payment for subscription: {}", subscriptionId);
+            } catch (Exception e) {
+                log.error("Retry payment failed for subscription: {} - {}",
+                        subscriptionId, e.getMessage());
+                recordPaymentLog(subscription, RETRY_LOG_TYPE,
+                        "Payment retry failed: " + e.getMessage());
+                notificationService.sendPaymentFailure(subscription);
+            }
+        }
+    }
+
+    private void processSubscriptionRenewal(Subscription subscription) {
+        log.debug("Processing renewal for subscription: {}", subscription.getSubscriptionId());
+        subscriptionService.renewSubscription(subscription.getSubscriptionId());
+        notificationService.sendRenewalSuccess(subscription);
+    }
+
+    private void handleRenewalFailure(Subscription subscription, Exception e) {
+        subscription.setStatus(SubscriptionStatus.PAYMENT_FAILED);
+        subscription.setUpdatedAt(LocalDateTime.now());
+        subscriptionRepository.save(subscription);
+
+        recordPaymentLog(subscription, FAILURE_LOG_TYPE,
+                "Payment failed: " + e.getMessage());
+        notificationService.sendPaymentFailure(subscription);
+    }
+
+    private void handleMaxRetriesExceeded(Subscription subscription) {
+        subscription.setStatus(SubscriptionStatus.EXPIRED);
+        subscription.setEndDate(LocalDateTime.now());
+        subscription.setUpdatedAt(LocalDateTime.now());
+        subscriptionRepository.save(subscription);
+
+        recordPaymentLog(subscription, FAILURE_LOG_TYPE,
+                "Subscription expired due to maximum retry attempts");
+        notificationService.sendSubscriptionExpired(subscription);
+    }
+
+    private void recordPaymentLog(Subscription subscription, String logType, String content) {
+        PaymentLog log = PaymentLog.builder()
+                .payment(subscription.getLastPayment().getPayment())
+                .logType(logType)
+                .content(content)
+                .createdAt(LocalDateTime.now())
+                .build();
+        paymentLogRepository.save(log);
     }
 }

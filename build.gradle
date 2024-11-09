@@ -74,11 +74,13 @@ dependencies {
     // 환경 변수
     implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
-    // Mail
+    // notification
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'jakarta.mail:jakarta.mail-api'
     implementation 'org.springframework.retry:spring-retry'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.3'  // SMS API 호출용
+
 
     // 개발 도구
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

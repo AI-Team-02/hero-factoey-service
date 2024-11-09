@@ -87,16 +87,26 @@ payment:
     max-attempts: 3
     delay-minutes: 240  # 4시간
 
-#  mail:
-#    host: smtp.gmail.com  # 또는 사용하는 메일 서버
-#    port: 587
-#    username: your-email@gmail.com
-#    password: your-app-password
-#    properties:
-#      mail:
-#        smtp:
-#          auth: true
-#          starttls:
-#            enable: true
-#      company-name: Hero Factory
-#    protocol: smtp
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_APP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+      company-name: Hero Factory
+    protocol: smtp
+
+  ncloud:
+    sms:
+      api:
+        url: ${SMS_API_URL}
+        service-id: ${SMS_SERVICE_ID}
+        access-key: ${SMS_ACCESS_KEY}
+        secret-key: ${SMS_SECRET_KEY}
+      sender:
+        number: ${SMS_SENDER_NUMBER}

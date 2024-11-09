@@ -1,5 +1,6 @@
 package ai.herofactoryservice.subscription.entity;
 
+import ai.herofactoryservice.payment.entity.Payment;
 import ai.herofactoryservice.payment.entity.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -22,6 +23,10 @@ public class SubscriptionPayment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_id", nullable = false)
     private Subscription subscription;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id")
+    private Payment payment;  // 실제 결제 정보와의 연결
 
     @Column(nullable = false)
     private Long amount;
