@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")
+    @Value("${jwt.secret-key}")
     private String secretKey;
 
     private final long accessTokenValidityInMilliseconds = 60 * 60 * 1000; // 1시간
