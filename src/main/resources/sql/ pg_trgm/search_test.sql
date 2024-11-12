@@ -1,0 +1,4 @@
+EXPLAIN (ANALYZE true, COSTS true, FORMAT JSON)
+SELECT * FROM item WHERE name LIKE '%정령%';
+
+
