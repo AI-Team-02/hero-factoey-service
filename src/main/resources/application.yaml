@@ -28,6 +28,9 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
 
+  elasticsearch:
+    uris: http://localhost:9200
+
   rabbitmq:
     host: localhost
     port: 5672
