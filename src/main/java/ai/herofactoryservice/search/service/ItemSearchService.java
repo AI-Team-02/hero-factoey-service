@@ -1,6 +1,7 @@
 package ai.herofactoryservice.search.service;
 
 import ai.herofactoryservice.search.document.ItemDocument;
+import ai.herofactoryservice.search.repository.ItemSearchRepository;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 import java.util.Collections;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ItemSearchService {
     private final ElasticsearchOperations elasticsearchOperations;
+    private final ItemSearchRepository itemSearchRepository;
 
     public List<ItemDocument> searchItems(String keyword) {
             Query query = QueryBuilders.bool()
@@ -47,5 +49,9 @@ public class ItemSearchService {
                     .map(SearchHit::getContent)
                     .filter(Objects::nonNull)
                     .toList();
+    }
+
+    public ItemDocument save(ItemDocument itemDocument) {
+        return itemSearchRepository.save(itemDocument);
     }
 }
