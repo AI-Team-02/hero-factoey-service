@@ -1,6 +1,7 @@
 package ai.herofactoryservice.shop.controller;
 
 import ai.herofactoryservice.shop.dto.ItemDto;
+import ai.herofactoryservice.shop.dto.ItemRequestDto;
 import ai.herofactoryservice.shop.dto.ItemsResponse;
 import ai.herofactoryservice.shop.entity.Category;
 import ai.herofactoryservice.shop.entity.Item;
@@ -29,6 +30,12 @@ public class ItemController {
     private final ItemService itemService;
     private final CategoryRepository categoryRepository;
     private final ItemRepository itemRepository;
+
+    @PostMapping
+    public ResponseEntity<ItemDto> createItem(@RequestBody ItemRequestDto requestDto) {
+        ItemDto savedItem = itemService.saveItem(requestDto);
+        return ResponseEntity.ok(savedItem);
+    }
 
     @Operation(summary = "전체 아이템 목록 조회(무한 스크롤)", description = "페이징 처리된 전체 아이템 목록을 조회합니다")
     @GetMapping("/items")
