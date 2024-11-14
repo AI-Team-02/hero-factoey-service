@@ -32,10 +32,10 @@ public class ItemDocument {
     @Field(type = FieldType.Keyword)
     private String categoryName;
 
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Text, index = false)
     private String imageUrl;
 
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Text, index = false)
     private String downloadUrl;
 
     @Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second_millis)
