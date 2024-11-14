@@ -19,9 +19,22 @@ public class ItemSearchService {
     private final ElasticsearchOperations elasticsearchOperations;
 
     public List<ItemDocument> searchItems(String keyword) {
-            Query query = QueryBuilders.match()
-                    .field("name")
-                    .query(keyword)
+            Query query = QueryBuilders.bool()
+                    .should(
+                            QueryBuilders.match()
+                                    .field("name")
+                                    .query(keyword)
+                                    .build()._toQuery(),
+                            QueryBuilders.match()
+                                    .field("description")
+                                    .query(keyword)
+                                    .build()._toQuery(),
+                            QueryBuilders.term()
+                                    .field("categoryName")
+                                    .value(keyword)
+                                    .build()._toQuery()
+                    )
+                    .minimumShouldMatch("1")
                     .build()._toQuery();
 
             NativeQuery searchQuery = NativeQuery.builder()
