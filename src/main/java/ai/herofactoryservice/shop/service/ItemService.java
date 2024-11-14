@@ -1,8 +1,11 @@
 package ai.herofactoryservice.shop.service;
 
 import ai.herofactoryservice.shop.dto.ItemDto;
+import ai.herofactoryservice.shop.dto.ItemRequestDto;
 import ai.herofactoryservice.shop.dto.ItemsResponse;
+import ai.herofactoryservice.shop.entity.Category;
 import ai.herofactoryservice.shop.entity.Item;
+import ai.herofactoryservice.shop.repository.CategoryRepository;
 import ai.herofactoryservice.shop.repository.ItemRepository;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,11 +21,22 @@ import org.springframework.util.StringUtils;
 @Transactional(readOnly = true)
 public class ItemService {
     private final ItemRepository itemRepository;
+    private final CategoryRepository categoryRepository;
+
+    @Transactional
+    public ItemDto saveItem(ItemRequestDto requestDto) {
+        // 카테고리 조회
+        Category category = categoryRepository.findById(requestDto.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("Category not found"));
+        Item item = itemRepository.save(ItemRequestDto.toEntity(requestDto, category));
+
+        return ItemDto.createDto(item);
+    }
 
     public ItemsResponse getItems(Pageable pageable) {
         Page<Item> itemPage = itemRepository.findAll(pageable);
         List<ItemDto> items = itemPage.getContent().stream()
-                .map(ItemDto::from)
+                .map(ItemDto::createDto)
                 .collect(Collectors.toList());
 
         return new ItemsResponse(
@@ -36,7 +50,7 @@ public class ItemService {
     public ItemsResponse getItemsByCategory(Long categoryId, Pageable pageable) {
         Page<Item> itemPage = itemRepository.findByCategoryId(categoryId, pageable);
         List<ItemDto> items = itemPage.getContent().stream()
-                .map(ItemDto::from)
+                .map(ItemDto::createDto)
                 .collect(Collectors.toList());
 
         return new ItemsResponse(
@@ -50,7 +64,7 @@ public class ItemService {
     public ItemDto getItemById(Long id) {
         Item item = itemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found with id: " + id));
-        return ItemDto.from(item);
+        return ItemDto.createDto(item);
     }
 
     public ItemsResponse searchItems(String keyword, Pageable pageable) {
@@ -63,7 +77,7 @@ public class ItemService {
         }
 
         List<ItemDto> items = itemPage.getContent().stream()
-                .map(ItemDto::from)
+                .map(ItemDto::createDto)
                 .collect(Collectors.toList());
 
         return new ItemsResponse(
