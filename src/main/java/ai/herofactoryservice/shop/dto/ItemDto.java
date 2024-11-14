@@ -21,7 +21,7 @@ public class ItemDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static ItemDto from(Item item) {
+    public static ItemDto createDto(Item item) {
         ItemDto dto = new ItemDto();
         dto.setId(item.getId());
         dto.setName(item.getName());
@@ -35,4 +35,6 @@ public class ItemDto {
         dto.setUpdatedAt(item.getUpdatedAt());
         return dto;
     }
+
+
 }
