@@ -19,17 +19,6 @@ spring:
     ncp:
       sms:
         enabled: false
-#  cloud: # ncloud를 cloud로 변경
-#    ncp: # 네이버 클라우드 플랫폼 표준 네이밍으로 변경
-#      sms:
-#        api:
-#          url: ${SMS_API_URL}
-#          service-id: ${SMS_SERVICE_ID}
-#          access-key: ${SMS_ACCESS_KEY}
-#          secret-key: ${SMS_SECRET_KEY}
-#        sender:
-#          number: ${SMS_SENDER_NUMBER}
-
 
   # Swagger 설정
   springdoc:
@@ -69,9 +58,10 @@ spring:
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+
   # RabbitMQ 설정
   rabbitmq:
-    host: localhost
+    host: rabbitmq
     port: 5672
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
@@ -79,10 +69,13 @@ spring:
   # Redis 설정
   data:
     redis:
-      host: localhost
+      host: redis
       port: 6379
       password: ${REDIS_PASSWORD}
 
+# 서버 설정
+server:
+  port: ${SERVER_PORT}
 
 # JWT 설정
 jwt:
@@ -102,12 +95,8 @@ openai:
       temperature: ${OPENAI_REQUEST_TEMPERATURE}
       connect-timeout: ${OPENAI_REQUEST_CONNECT_TIMEOUT}
     rate-limit:
-      requests-per-minute: 20
-      burst: 5
-
-
-
-
+      requests-per-minute: 20  # 직접 값 설정
+      burst: 5  # 직접 값 설정
 # 카카오 설정
 kakao:
   client:
@@ -117,16 +106,12 @@ kakao:
       key: ${KAKAO_PAY_ADMIN_KEY}
     cid: ${KAKAO_PAY_CID}
 
-
-
 # 결제 재시도 설정
 payment:
   retry:
     max-attempts: 3
     delay-minutes: 240  # 4시간
 
+# CORS 설정
 cors:
   allowed-origins: http://localhost:3000
-
-server:
-  port: 8080

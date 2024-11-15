@@ -96,6 +96,7 @@ dependencies {
 
     // Elasticsearch
     implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+
 }
 test {
     enabled = true  // 테스트 활성화
