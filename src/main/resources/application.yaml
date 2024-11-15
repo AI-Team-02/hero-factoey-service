@@ -1,64 +1,132 @@
-kakao:
-  client:
-    id: ${KAKAO_CLIENT_ID}
-
 spring:
-  application:
-    name: hero-factory-service
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USER_NAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+  # 메일 설정
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_APP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+      company-name: Hero Factory
+    protocol: smtp
+
+  # NCloud SMS 설정
+  cloud:
+    ncp:
+      sms:
+        enabled: false
+#  cloud: # ncloud를 cloud로 변경
+#    ncp: # 네이버 클라우드 플랫폼 표준 네이밍으로 변경
+#      sms:
+#        api:
+#          url: ${SMS_API_URL}
+#          service-id: ${SMS_SERVICE_ID}
+#          access-key: ${SMS_ACCESS_KEY}
+#          secret-key: ${SMS_SECRET_KEY}
+#        sender:
+#          number: ${SMS_SENDER_NUMBER}
+
+
+  # Swagger 설정
+  springdoc:
+    api-docs:
+      path: /api-docs
+    swagger-ui:
+      path: /swagger-ui.html
+      tags-sorter: alpha
+      operations-sorter: alpha
+    packages-to-scan: ai.herofactoryservice
+
+  # JPA 설정
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        # pgvector 지원을 위한 설정 추가
-        types:
-          print:
-            banner: false
+    show-sql: true
+    defer-datasource-initialization: true
+    sql:
+      init:
+        mode: always
+        schema-locations: classpath:./postgresql/init/init.sql
+        continue-on-error: false
+
+  elasticsearch:
+    uris: http://localhost:9200
+
+  # 데이터소스 설정
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  # RabbitMQ 설정
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+  # Redis 설정
   data:
     redis:
       host: localhost
       port: 6379
       password: ${REDIS_PASSWORD}
 
-  elasticsearch:
-    uris: http://localhost:9200
 
-  rabbitmq:
-    host: localhost
-    port: 5672
-    listener:
-      simple:
-        retry:
-          enabled: true
-          initial-interval: 1000
-          max-attempts: 3
-          max-interval: 10000
-          multiplier: 2.0
-    publisher-confirm-type: correlated
-    publisher-returns: true
-    template:
-      mandatory: true
-
+# JWT 설정
 jwt:
-  secret: ${JWT_SECRET_KEY}
+  secret-key: ${JWT_SECRET_KEY}
 
-# 벡터 검색 관련 설정
-vector:
-  search:
-    similarity-threshold: 0.8
-    max-results: 5
+# OpenAI 설정
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+    base-url: https://api.openai.com/v1
+    models:
+      chat: ${OPENAI_MODEL_CHAT}
+      embedding: ${OPENAI_MODEL_EMBEDDING}
+    request:
+      timeout: ${OPENAI_REQUEST_TIMEOUT}
+      max-tokens: ${OPENAI_REQUEST_MAX_TOKENS}
+      temperature: ${OPENAI_REQUEST_TEMPERATURE}
+      connect-timeout: ${OPENAI_REQUEST_CONNECT_TIMEOUT}
+    rate-limit:
+      requests-per-minute: 20
+      burst: 5
 
-logging:
-  level:
-    ai:
-      herofactoryservice: DEBUG
-    # vector 검색 관련 로깅 추가
-#    org.postgresql: DEBUG
+
+
+
+# 카카오 설정
+kakao:
+  client:
+    id: ${KAKAO_CLIENT_ID}
+  pay:
+    admin:
+      key: ${KAKAO_PAY_ADMIN_KEY}
+    cid: ${KAKAO_PAY_CID}
+
+
+
+# 결제 재시도 설정
+payment:
+  retry:
+    max-attempts: 3
+    delay-minutes: 240  # 4시간
+
+cors:
+  allowed-origins: http://localhost:3000
+
+server:
+  port: 8080
