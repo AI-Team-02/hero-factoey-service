@@ -3,14 +3,12 @@ version: '3.8'
 services:
   redis:
     image: redis:latest
-    container_name: hero-factory-redis
+    container_name: redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
-    networks:
-      - hero-factory-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -41,7 +39,7 @@ services:
     build:
       context: ./postgresql
       dockerfile: Dockerfile
-    container_name: hero-factory-postgres
+    container_name: postgres
     ports:
       - "5432:5432"
     environment:
@@ -55,8 +53,6 @@ services:
       - "postgres"
       - "-c"
       - "shared_preload_libraries=vector"
-    networks:
-      - hero-factory-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -66,15 +62,13 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: hero-factory-rabbitmq
+    container_name: rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
-    networks:
-      - hero-factory-network
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -82,35 +76,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  spring-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: hero-factory-app
-    ports:
-      - "8080:8080"
-    volumes:
-      - /logs:/logs
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - TZ=Asia/Seoul
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - hero-factory-network
-    restart: unless-stopped
-
-networks:
-  hero-factory-network:
-    driver: bridge
 
 volumes:
   redis_data:
