@@ -1,0 +1,20 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:2.2.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-common:2.2.0'
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
+    implementation(project(":adapter:postgresql"))
+    implementation(project(":application:usecase"))
+    implementation(project(":domain"))
+}

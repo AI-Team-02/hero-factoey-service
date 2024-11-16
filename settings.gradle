@@ -1,1 +1,15 @@
 rootProject.name = 'hero-factory-service'
+include 'common'
+
+include 'application'
+include 'application:port'
+include 'application:usecase'
+
+include 'consumer'
+include 'adapter'
+include 'adapter:postgresql'
+
+
+include 'domain'
+include 'api'
+

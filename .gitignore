@@ -5,8 +5,11 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### STS ###
 .env
+
+
+### STS ###
+api/.env
 .apt_generated
 .classpath
 .factorypath
