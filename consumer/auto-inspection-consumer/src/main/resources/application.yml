@@ -1,0 +1,9 @@
+server:
+  port: 8082
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092,localhost:9093,localhost:9094
+
+logging:
+  level:
+    com.herofactory: DEBUG  # 특정 패키지의 로깅 레벨

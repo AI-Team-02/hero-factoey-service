@@ -2,4 +2,4 @@ rootProject.name = 'hero-factory-service'
 
 include 'server'
 include 'consumer'
-include ':consumer:auto-inspection-worker'
+include ':consumer:auto-inspection-consumer'
