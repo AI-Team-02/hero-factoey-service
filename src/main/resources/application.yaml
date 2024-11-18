@@ -51,6 +51,9 @@ spring:
   elasticsearch:
     uris: http://localhost:9200
 
+  kafka:
+    bootstrap-servers: localhost:9092,localhost:9093,localhost:9094
+
   # 데이터소스 설정
   datasource:
     url: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
@@ -73,9 +76,7 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
 
-# 서버 설정
-server:
-  port: ${SERVER_PORT}
+
 
 # JWT 설정
 jwt:
