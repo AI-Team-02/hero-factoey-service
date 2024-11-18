@@ -37,7 +37,7 @@ public class Item {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
-
+    private Long userId;
     private String imageUrl;        // 미리보기 이미지 URL
     private String downloadUrl;     // 실제 다운로드 URL
 

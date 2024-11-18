@@ -1,7 +1,7 @@
 package ai.herofactoryservice.shop.controller;
 
 import ai.herofactoryservice.shop.dto.ItemDto;
-import ai.herofactoryservice.shop.dto.ItemRequestDto;
+import ai.herofactoryservice.shop.dto.ItemRequest;
 import ai.herofactoryservice.shop.dto.ItemsResponse;
 import ai.herofactoryservice.shop.entity.Category;
 import ai.herofactoryservice.shop.entity.Item;
@@ -32,7 +32,7 @@ public class ItemController {
     private final ItemRepository itemRepository;
 
     @PostMapping
-    public ResponseEntity<ItemDto> createItem(@RequestBody ItemRequestDto requestDto) {
+    public ResponseEntity<ItemDto> createItem(@RequestBody ItemRequest requestDto) {
         ItemDto savedItem = itemService.saveItem(requestDto);
         return ResponseEntity.ok(savedItem);
     }

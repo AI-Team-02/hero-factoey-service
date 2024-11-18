@@ -15,6 +15,7 @@ public class ItemDto {
     private String description;
     private int price;
     private String categoryName;
+    private Long userId;
     private String imageUrl;
     private String downloadUrl;
     private LocalDateTime createdAt;
@@ -27,6 +28,7 @@ public class ItemDto {
         dto.setDescription(item.getDescription());
         dto.setPrice(item.getPrice());
         dto.setCategoryName(item.getCategory().getName());
+        dto.setUserId(item.getUserId());
         dto.setImageUrl(item.getImageUrl());
         dto.setDownloadUrl(item.getDownloadUrl());
         dto.setCreatedAt(item.getCreatedAt());

@@ -1,9 +1,10 @@
 package ai.herofactoryservice.shop.service;
 
+import ai.herofactoryservice.kafka.item.OriginalItemMessageProduceService;
 import ai.herofactoryservice.search.document.ItemDocument;
 import ai.herofactoryservice.search.service.ItemSearchService;
 import ai.herofactoryservice.shop.dto.ItemDto;
-import ai.herofactoryservice.shop.dto.ItemRequestDto;
+import ai.herofactoryservice.shop.dto.ItemRequest;
 import ai.herofactoryservice.shop.dto.ItemsResponse;
 import ai.herofactoryservice.shop.entity.Category;
 import ai.herofactoryservice.shop.entity.Item;
@@ -26,16 +27,18 @@ public class ItemService {
     private final ItemRepository itemRepository;
     private final CategoryRepository categoryRepository;
     private final ItemSearchService itemSearchService;
+    private final OriginalItemMessageProduceService originalItemMessageProduceService;
 
     @Transactional
-    public ItemDto saveItem(ItemRequestDto requestDto) {
+    public ItemDto saveItem(ItemRequest requestDto) {
         // 카테고리 조회
         Category category = categoryRepository.findById(requestDto.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Category not found"));
-        Item item = itemRepository.save(ItemRequestDto.toEntity(requestDto, category));
+        Item item = itemRepository.save(ItemRequest.toEntity(requestDto, category));
         ItemDto itemDto = ItemDto.createDto(item);
-        itemSearchService.save(toDocument(itemDto));
+//        itemSearchService.save(toDocument(itemDto));
 
+        originalItemMessageProduceService.sendMessage(itemDto);
         return itemDto;
     }
 
