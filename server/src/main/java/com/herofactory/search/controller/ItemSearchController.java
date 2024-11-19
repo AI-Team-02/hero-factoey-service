@@ -1,6 +1,7 @@
 package com.herofactory.search.controller;
 
 import com.herofactory.search.document.ItemDocument;
+import com.herofactory.search.model.ItemInListDto;
 import com.herofactory.search.service.ItemSearchService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.List;
@@ -21,14 +22,22 @@ public class ItemSearchController {
     private final ItemSearchService itemSearchService;
 
     @GetMapping("/search")
-    public ResponseEntity<List<ItemDocument>> searchItems(
-            @RequestParam(required = false, defaultValue = "") String keyword) {
-        List<ItemDocument> results = itemSearchService.searchItems(keyword);
-        return ResponseEntity.ok(results);
+    public ResponseEntity<List<ItemInListDto>> searchItems(
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam("page") int page
+            ) {
+        List<ItemDocument> results = itemSearchService.searchItems(keyword, page, 10);
+        return ResponseEntity.ok().body(results.stream().map(this::toDto).toList());
     }
 
-    @PostMapping
-    public ResponseEntity<ItemDocument> createItem(@RequestBody ItemDocument itemDocument) {
-        return ResponseEntity.ok(itemSearchService.save(itemDocument));
+    // 인덱스 되는 순간이 지금 다른데? creatAt 이거 대체가 필요해보이는데
+    private ItemInListDto toDto(ItemDocument itemDocument) {
+        return new ItemInListDto(
+                itemDocument.getId(),
+                itemDocument.getName(),
+                itemDocument.getPrice(),
+                itemDocument.getCreatedAt()
+        );
     }
+
 }

@@ -17,7 +17,10 @@ public class ItemInspectService {
     private final AutoInspectService autoInspectService;
 
     public InspectedItemDto inspectAndGetIfValid(ItemDto itemDto) {
-        log.debug("Starting inspection for itemDto: {}", itemDto);
+        log.debug("Starting inspection for itemDto: [name={}, description={}, categoryName={}]",
+                itemDto.getName(),
+                itemDto.getDescription(),
+                itemDto.getCategoryName());
         AutoInspectionResult inspectionResult = autoInspectService.inspect(itemDto);
         log.debug("Inspection result: status=[{}], tags={}",
                 inspectionResult.getStatus(),

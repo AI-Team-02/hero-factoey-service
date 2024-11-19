@@ -37,6 +37,8 @@ public class ItemController {
         return ResponseEntity.ok(savedItem);
     }
 
+
+    @Deprecated
     @Operation(summary = "전체 아이템 목록 조회(무한 스크롤)", description = "페이징 처리된 전체 아이템 목록을 조회합니다")
     @GetMapping("/items")
     public ResponseEntity<ItemsResponse> getItems(
@@ -70,6 +72,7 @@ public class ItemController {
         return ResponseEntity.ok(itemService.getItemById(id));
     }
 
+    @Deprecated
     @Operation(summary = "아이템 검색(무한 스크롤 + Debounce)", description = "아이템을 이름으로 검색합니다.")
     @GetMapping("/items/search")
     public ResponseEntity<ItemsResponse> searchItems(

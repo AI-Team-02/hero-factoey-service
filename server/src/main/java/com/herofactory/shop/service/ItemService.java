@@ -97,14 +97,4 @@ public class ItemService {
         );
     }
 
-    private ItemDocument toDocument(ItemDto itemDto) {
-        ItemDocument document = new ItemDocument();
-        document.setId(itemDto.getId());
-        document.setName(itemDto.getName());
-        document.setDescription(itemDto.getDescription());
-        document.setPrice(itemDto.getPrice());
-        document.setCategoryName(itemDto.getCategoryName());
-        document.setIndexAt(LocalDateTime.now());
-        return document;
-    }
 }
