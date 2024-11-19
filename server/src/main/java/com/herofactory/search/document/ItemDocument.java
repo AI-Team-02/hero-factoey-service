@@ -1,5 +1,6 @@
 package com.herofactory.search.document;
 
+import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -32,6 +33,9 @@ public class ItemDocument {
     @Field(type = FieldType.Keyword)
     private String categoryName;
 
+    @Field(type = FieldType.Keyword)
+    private List<String> tags;
+
     @Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second_millis)
-    private LocalDateTime indexAt;
+    private LocalDateTime createdAt;
 }
