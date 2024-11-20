@@ -114,6 +114,33 @@ services:
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
 
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    container_name: filebeat
+    volumes:
+      - ./.data/tomcat/logs:/usr/share/filebeat/logs
+      - ./.data/filebeat/data:/usr/share/filebeat/data
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    command: filebeat -e -strict.perms=false
+    depends_on:
+      - logstash
+      - zookeeper
+      - kafka1
+      - kafka2
+      - kafka3
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.4
+    container_name: logstash
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch
+      - zookeeper
+      - kafka1
+      - kafka2
+      - kafka3
   postgres:
     build:
       context: server/postgresql
