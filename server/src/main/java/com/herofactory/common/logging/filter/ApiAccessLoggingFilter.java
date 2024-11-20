@@ -1,10 +1,13 @@
 package com.herofactory.common.logging.filter;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,6 +24,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 
 @Slf4j
 @Component
@@ -38,11 +42,39 @@ public class ApiAccessLoggingFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
+        ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
         long startTime = System.currentTimeMillis();
+        String path = request.getRequestURI();
+        Map<String, Object> additionalInfo = new HashMap<>();
         String errorMessage = null;
 
+        if (path.equals("/api/items/search")) {
+            String keyword = request.getParameter("keyword");
+            if (keyword != null) {
+
+                String decodedKeyword = URLDecoder.decode(keyword, StandardCharsets.UTF_8);
+                additionalInfo.put("searchKeyword", decodedKeyword);
+            }
+        }
+
         try {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(request, responseWrapper);
+
+
+            if (path.matches("/shop/items/\\d+")) {
+                String itemId = path.substring(path.lastIndexOf("/") + 1);
+
+                // 응답 데이터 읽기
+                String responseBody = new String(responseWrapper.getContentAsByteArray());
+
+                if (responseBody != null && !responseBody.isEmpty()) {
+                    JsonNode jsonNode = objectMapper.readTree(responseBody);
+                    String itemName = jsonNode.path("name").asText();
+
+                    additionalInfo.put("itemId", itemId);
+                    additionalInfo.put("itemName", itemName);
+                }
+            }
         } catch (Exception e) {
             errorMessage = e.getMessage();
             throw e;
@@ -75,6 +107,10 @@ public class ApiAccessLoggingFilter extends OncePerRequestFilter {
                 // 에러 정보
                 if (errorMessage != null) {
                     logData.put("errorMessage", errorMessage);
+                }
+
+                if (!additionalInfo.isEmpty()) {
+                    logData.put("additionalInfo", additionalInfo);
                 }
 
                 // Kafka로 전송
