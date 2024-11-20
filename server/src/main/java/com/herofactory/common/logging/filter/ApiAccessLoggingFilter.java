@@ -79,6 +79,7 @@ public class ApiAccessLoggingFilter extends OncePerRequestFilter {
             errorMessage = e.getMessage();
             throw e;
         } finally {
+            responseWrapper.copyBodyToResponse();
             try {
                 // 로그 데이터 생성
                 Map<String, Object> logData = new HashMap<>();
