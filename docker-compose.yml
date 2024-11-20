@@ -27,6 +27,8 @@ services:
       - KAFKA_CFG_LISTENERS=CLIENT://:19092,EXTERNAL://:9092
       - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka1:19092,EXTERNAL://localhost:9092
       - KAFKA_INTER_BROKER_LISTENER_NAME=CLIENT
+      - KAFKA_CFG_DELETE_TOPIC_ENABLE=true
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
     depends_on:
       - zookeeper
     volumes:
@@ -45,6 +47,8 @@ services:
       - KAFKA_CFG_LISTENERS=CLIENT://:19092,EXTERNAL://:9093
       - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka2:19092,EXTERNAL://localhost:9093
       - KAFKA_INTER_BROKER_LISTENER_NAME=CLIENT
+      - KAFKA_CFG_DELETE_TOPIC_ENABLE=true
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
     depends_on:
       - zookeeper
     volumes:
@@ -63,6 +67,8 @@ services:
       - KAFKA_CFG_LISTENERS=CLIENT://:19092,EXTERNAL://:9094
       - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka3:19092,EXTERNAL://localhost:9094
       - KAFKA_INTER_BROKER_LISTENER_NAME=CLIENT
+      - KAFKA_CFG_DELETE_TOPIC_ENABLE=true
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
     depends_on:
       - zookeeper
     volumes:

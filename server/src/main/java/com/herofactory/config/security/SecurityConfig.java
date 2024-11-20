@@ -1,5 +1,6 @@
 package com.herofactory.config.security;
 
+import com.herofactory.common.logging.filter.ApiAccessLoggingFilter;
 import com.herofactory.login.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +19,7 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenService tokenService;
+    private final ApiAccessLoggingFilter apiAccessLoggingFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -33,7 +35,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, tokenService),
-                        UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class)
+        .addFilterAfter(apiAccessLoggingFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
