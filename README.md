@@ -1,13 +1,16 @@
 # 🧟 HeroFactory
 > 1인 게임 개발자를 위한 AI 기반 게임 리소스 생성 및 스토어 플랫폼
+>
+> 팀명: 영화감독
+> 
+> 기간: 2024.10.03 - 2024.11.17 (약 6주)
 
-
-## 📦 Related Repositories
+### 📦 Related Repositories
 - [hero-factory-client](https://github.com/AI-Team-02/hero-factory-client) - 프론트엔드
 - [hero-factoey-service](https://github.com/AI-Team-02/hero-factoey-service) - 백엔드 📍 You are here
 - [hero-factory-ai](https://github.com/AI-Team-02/hero-factory-ai) - AI 서비스
 
-## 📌 Quick Links
+### 📌 Quick Links
 [![GitHub Issues](https://img.shields.io/badge/GitHub-Issues-green?style=for-the-badge&logo=github)](https://github.com/AI-Team-02/hero-factoey-service/issues?q=is%3Aissue+is%3Aclosed)
 
 
@@ -20,26 +23,26 @@
 6. [기술 스택 선정 이유](#why)
 7. [프로젝트 회고](#retrospection)
 
-## 🎮 서비스 소개 <a name="outline"></a>
+## 🧌 서비스 소개 <a name="outline"></a>
 
-### 서비스 개요
+### 🎮 서비스 개요
 게임 개발자들이 스케치만으로 고품질의 게임 리소스를 자동 생성하고, 필수 게임 리소스를 구매할 수 있는 AI 기반 구독형 서비스
 
 ![메인.png](..%2F%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8%2F%EB%A9%94%EC%9D%B8.png)
 
-### Pain Points & Solutions
+### 😿 Pain Points & Solutions
 
-#### 1. 디자이너 부재로 인한 퀄리티 저하
+#### 1️⃣ 디자이너 부재로 인한 퀄리티 저하
 - **Problem**: 1인 개발 환경에서 전문 디자이너 부재
 - **Solution**: ComfyUI 기반 AI로 스케치에서 고품질 리소스 자동 생성
 
-#### 2. 리소스 제작 비용 문제
+#### 2️⃣ 리소스 제작 비용 문제
 - **Problem**: UI, 캐릭터, 아이템 등 다양한 리소스 제작 비용 부담
 - **Solution**: AI 생성 + 마켓플레이스를 통한 비용 효율화
 
 ## ⚡ 주요 기능 <a name="features"></a>
 
-### 1. AI 리소스 생성
+### 1️⃣ AI 리소스 생성
 - 스케치 기반 이미지 생성
   - ComfyUI를 활용한 고품질 이미지 생성
   - 간단한 스케치와 텍스트 기반 이미지 생성
@@ -47,7 +50,7 @@
   - 자연어 설명을 AI 프롬프트로 변환
   - 세부 스타일 및 디테일 반영
 
-### 2. 게임 리소스 스토어
+### 2️⃣ 게임 리소스 스토어
 - 검증된 고품질 리소스 판매
   - UI/UX 요소
   - 캐릭터/아이템 이미지
