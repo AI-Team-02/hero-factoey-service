@@ -157,8 +157,8 @@
 - Elasticsearch - 검색 엔진
 - Kafka - 데이터 스트림 처리
 - Elastic Stack - 로그 분석
-#### 1️⃣ Redis
 
+#### 1️⃣ Redis
 ##### 문제
 - 토큰 탈취 시 보안 문제 발생
 - 로그아웃 시 서버에 토큰 저장 필요
@@ -169,15 +169,15 @@
 - Access Token과 Refresh Token을 저장하지 않고, Refresh Token을 활용하여 로그아웃 및 토큰 탈취를 효율적으로 관리
 
 ##### 관련 이슈
-- 토큰 탈취 문제 #26
-- 로그아웃 처리 #27
-- Refresh Token 만료 처리 #28
+- [토큰 탈취 문제](https://github.com/AI-Team-02/hero-factoey-service/issues/26) #26
+- [로그아웃 처리](https://github.com/AI-Team-02/hero-factoey-service/issues/27) #27
+- [Refresh Token 만료 처리](https://github.com/AI-Team-02/hero-factoey-service/issues/28) #28
 
 #### 2️⃣ Elasticsearch
 ##### 문제
 - 상점 검색 성능의 저하
 - PostgreSQL에서 LIKE '%문자%' 쿼리의 인덱싱 한계(특히 한국어)
-- 다양한 필드(이름, 설명, 태그 등)에 대한 검색 요구 증가 
+- 다양한 필드(이름, 설명, 태그 등)에 대한 검색 요구 증가
 
 ##### 해결
 - Elasticsearch 도입으로 LIKE '%문자%' 쿼리 대체
@@ -186,23 +186,22 @@
 - 특정 필드는 PostgreSQL, 검색은 Elasticsearch를 활용해 역할 분리
 
 ##### 관련 이슈
-- 검색 성능 문제 #42
-- 검색 index scan 오류 #43
-- Elasticsearch 환경 구축 & 테스트 #44
-- 아이템 Elasticsearch 검색엔진 적용 #46
-- ES 아이템 검색 조건 추가 #47
-- 게시글 상세 조회의 역할 #49
+- [검색 성능 문제](https://github.com/AI-Team-02/hero-factoey-service/issues/42) #42
+- [검색 index scan 오류](https://github.com/AI-Team-02/hero-factoey-service/issues/43) #43
+- [Elasticsearch 환경 구축 & 테스트](https://github.com/AI-Team-02/hero-factoey-service/issues/44) #44
+- [아이템 Elasticsearch 검색엔진 적용](https://github.com/AI-Team-02/hero-factoey-service/issues/46) #46
+- [ES 아이템 검색 조건 추가](https://github.com/AI-Team-02/hero-factoey-service/issues/47) #47
+- [게시글 상세 조회의 역할](https://github.com/AI-Team-02/hero-factoey-service/issues/49) #49
 
 #### 3️⃣ Kafka
 ##### 문제
 - 상점 키워드 검색과 상세 조회의 분리로 상점의 원천 데이터의 저장의 필요성과 원천 데이터의 가공 처리가 필요해짐
 - 서버와 db가 1대1 매핑되는 시스템에서는 데이터 흐름 관점에서 한계가 명확히 보임
-    - 하나의 서비스 로직(게시글 생성)에 너무 많은 부하가 걸림 (PostgreSQL에 원천 데이터 저장 + Elasticsearch에 인덱스)
-    - 사용자가 하나의 서비스 로직에서 동기적 처리로 인한 부담을 져야할 이유가 전혀 존재하지 않음
-    - 비동기 처리가 필요해짐
+  - 하나의 서비스 로직(게시글 생성)에 너무 많은 부하가 걸림 (PostgreSQL에 원천 데이터 저장 + Elasticsearch에 인덱스)
+  - 사용자가 하나의 서비스 로직에서 동기적 처리로 인한 부담을 져야할 이유가 전혀 존재하지 않음
+  - 비동기 처리가 필요해짐
 - 게시글을 생성하는 과정에서 검수에 대한 요구 증가
   - 데이터 흐름의 확장성 고려가 필요해짐
-
 
 ##### 해결
 - 서비스가 점정 확장하면서, 데이터의 흐름과 처리의 확장성과 안정성을 위해 현재 적용중인 RabbitMQ 대신 Kafka를 도입
@@ -212,10 +211,10 @@
   - 원천데이터로부터 Open AI를 통해 검수과정을 거친 후, 가공하여 Elasticsearch에 인덱스 하는 데이터의 흐름을 효과적으로 처리
 
 ##### 관련 이슈
-- 게시글 상세 조회의 역할 #49
-- 카프카 적용 #50
-- 아키텍처 research #51
-- 생성된 아이템 게시글 검수 기능 #52
+- [게시글 상세 조회의 역할](https://github.com/AI-Team-02/hero-factoey-service/issues/49) #49
+- [카프카 적용](https://github.com/AI-Team-02/hero-factoey-service/issues/50) #50
+- [아키텍처 research](https://github.com/AI-Team-02/hero-factoey-service/issues/51) #51
+- [생성된 아이템 게시글 검수 기능](https://github.com/AI-Team-02/hero-factoey-service/issues/52) #52
 
 #### 4️⃣ Elastic Stack
 ##### 문제
@@ -228,8 +227,7 @@
 - API 상태 분석, 에러 모니터링, 인기 검색어 & 인기 상품 대시보드 생성
 
 ##### 관련 이슈
-- Elastic Stack + kafka를 통한 로그 처리 #54
-
+- [Elastic Stack + kafka를 통한 로그 처리](https://github.com/AI-Team-02/hero-factoey-service/issues/54) #54
 
 ### 📌 소감 <a name = "retrospection"></a>
 김기정
