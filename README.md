@@ -96,16 +96,16 @@
 
 ## 🎨 외부 API <a name = "api"></a>
 
-### Payment
+#### Payment
 ![Kakao Pay](https://img.shields.io/badge/Kakao_Pay-FFCD00.svg?style=for-the-badge&logo=kakao&logoColor=black)
 - 정기 결제(구독)
 - 단건 결제
 
-### Authentication
+#### Authentication
 ![Kakao Login](https://img.shields.io/badge/Kakao_Login-FFCD00.svg?style=for-the-badge&logo=kakao&logoColor=black)
 - OAuth 2.0 기반 인증
 
-### AI/ML
+#### AI/ML
 ![OpenAI](https://img.shields.io/badge/OpenAI_API-412991.svg?style=for-the-badge&logo=openai&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Google_Gemini-4285F4.svg?style=for-the-badge&logo=google&logoColor=white)
 - 콘텐츠 검수
@@ -114,12 +114,12 @@
 
 ## 🤖 AI 모델 상세 <a name="ai-models"></a>
 
-### Base Model
+#### Base Model
 - **Juggernaut XL - Lightning V9**
   - 빠른 이미지 생성 속도 (Lightning)
   - 고품질 이미지 생성
 
-### ControlNet & LoRA
+#### ControlNet & LoRA
 - **controlnet-scribble-sdxl-1.0**
     - 스케치 기반 이미지 생성
 - **Pixel Art XL**
