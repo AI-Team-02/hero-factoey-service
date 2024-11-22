@@ -1,5 +1,10 @@
 package com.herofactory.shop.service;
 
+import static com.herofactory.search.service.ItemSearchService.toDocument;
+
+import com.herofactory.inspecteditem.dto.InspectedItemDto;
+import com.herofactory.inspecteditem.service.ItemInspectService;
+import com.herofactory.kafka.item.OriginalItemMessageConverter;
 import com.herofactory.kafka.item.OriginalItemMessageProduceService;
 import com.herofactory.search.document.ItemDocument;
 import com.herofactory.search.service.ItemSearchService;
@@ -26,8 +31,11 @@ import org.springframework.util.StringUtils;
 public class ItemService {
     private final ItemRepository itemRepository;
     private final CategoryRepository categoryRepository;
-    private final ItemSearchService itemSearchService;
     private final OriginalItemMessageProduceService originalItemMessageProduceService;
+
+    // 테스트 추가
+    private final ItemSearchService itemSearchService;
+    private final ItemInspectService itemInspectService;
 
     @Transactional
     public ItemDto saveItem(ItemRequest requestDto) {
@@ -36,9 +44,10 @@ public class ItemService {
                 .orElseThrow(() -> new IllegalArgumentException("Category not found"));
         Item item = itemRepository.save(ItemRequest.toEntity(requestDto, category));
         ItemDto itemDto = ItemDto.createDto(item);
-//        itemSearchService.save(toDocument(itemDto));
+        InspectedItemDto inspectedItemDto = itemInspectService.inspectAndGetIfValid(itemDto);
+        itemSearchService.indexItem(inspectedItemDto);
 
-        originalItemMessageProduceService.sendMessage(itemDto);
+//        originalItemMessageProduceService.sendMessage(itemDto);
         return itemDto;
     }
 
