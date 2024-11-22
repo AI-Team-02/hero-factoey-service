@@ -150,7 +150,7 @@ services:
   postgres:
     build:
       context: server/postgresql
-      dockerfile: server/postgresql/Dockerfile
+      dockerfile: Dockerfile
     container_name: postgres
     ports:
       - "5432:5432"
